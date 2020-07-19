@@ -1,0 +1,24 @@
+DNS lookup for service:
+                                                                              
+master $ kubectl run test-bb --image=busybox:1.28 --restart=Never --rm -it -- nslookup nginx-resolver-service
+                                                                                       service name 
+Server:    10.96.0.10
+Address 1: 10.96.0.10 kube-dns.kube-system.svc.cluster.local
+
+Name:      nginx-resolver-service
+Address 1: 10.104.100.37 nginx-resolver-service.default.svc.cluster.local
+pod "test-bb" deleted
+master $
+
+
+DNS lookup for pod:
+            
+master $ kubectl run test-bb --image=busybox:1.28 --restart=Never --rm -it -- nslookup 10-244-1-10.default.pod
+                                                                                         pod-IP.namespace.pod 
+Server:    10.96.0.10
+Address 1: 10.96.0.10 kube-dns.kube-system.svc.cluster.local
+
+Name:      10-244-1-10.default.pod
+Address 1: 10.244.1.10 10-244-1-10.nginx-resolver-service.default.svc.cluster.local
+pod "test-bb" deleted
+master $
