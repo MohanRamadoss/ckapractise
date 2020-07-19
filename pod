@@ -1,0 +1,44 @@
+1. Create a new pod with the NGINX image
+
+Declarative way:
+master $ kubectl run nginx --image=nginx $gen
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: nginx
+  name: nginx
+spec:
+  containers:
+  - image: nginx
+    name: nginx
+    resources: {}
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+status: {}
+
+Imperative way:
+master $ kubectl run nginx --image=nginx
+
+
+2. Check the image used to create POD
+master $ kubectl describe pod newpods-424jh  | grep -i image
+    Image:         busybox
+    Image ID:      docker-pullable://busybox@sha256:9ddee63a712cea977267342e8750ecbc60d3aab25f04ceacfa795e6fce341793
+  Normal  Pulling    46s   kubelet, node01    Pulling image "busybox"
+  Normal  Pulled     44s   kubelet, node01    Successfully pulled image "busybox"
+master $
+
+3. Create a redis pod with image redis123 
+kubectl run redis --image=redis123 $gen > redis.yaml
+kubectl create -f redis.yaml
+
+4. Update image of the above redis pod to redis
+Update the yaml file with correct image.
+kubectl replace -f redis.yaml
+
+we can also update the image of the pod using set image option
+kubectl set image pod redis reids=redis
+                      pod   container   new image
+                      name  name        name
