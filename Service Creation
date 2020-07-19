@@ -1,0 +1,4 @@
+Creating a pod and expose to a service:
+
+kubectl run nginx-resolver --image=nginx
+kubectl expose pod nginx-resolver --name=nginx-resolver-service --port=80  --type=ClusterIP
