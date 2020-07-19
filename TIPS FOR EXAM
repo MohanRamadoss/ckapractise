@@ -1,0 +1,6 @@
+ kubectl run pod1 --image nginx --labels='app=mohan,env=prod'
+ kubectl expose pod pod1 --port=80 --name=svc1 --type=NodePort  --dry-run=client -o yaml > expose.yaml
+ kubectl delete all --all
+
+ kubectl get all
+ kubectl get all -A 
