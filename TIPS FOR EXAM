@@ -1,6 +1,83 @@
  kubectl run pod1 --image nginx --labels='app=mohan,env=prod'
  kubectl expose pod pod1 --port=80 --name=svc1 --type=NodePort  --dry-run=client -o yaml > expose.yaml
+ clean every thing on the server
  kubectl delete all --all
 
  kubectl get all
  kubectl get all -A 
+
+
+
+aliases
+
+
+Kubectl Autocomplete (from K8S cheatsheet)
+BASH
+source <(kubectl completion bash) # setup autocomplete in bash into the current shell, bash-completion package should be installed first.
+echo "source <(kubectl completion bash)" >> ~/.bashrc # add autocomplete permanently to your bash shell.
+
+alias k=kubectl
+complete -F __start_kubectl k
+
+alias k=kubectl
+alias kgp='kubectl get pods -o wide'
+alias kgs='kubectl get svc -o wide'
+alias kgd='kubectl get deploy -o wide'
+
+alias kdp='kubectl describe pod'
+alias kdd='kubectl describe deploy'
+alias kds='kubectl describe svc'
+export gen="--dry-run=client -o yaml"
+
+alias kdn='kubectl describe node'
+alias kgn='kubectl get nodes -o wide'
+
+
+
+
+I find useful the below lines:
+alias k=kubectl
+source <(k completion bash)
+source <(k completion bash | sed s/kubectl/k/g)
+
+vi ~/.vimrc
+
+autocmd FileType yaml setlocal ts=2 sts=2 sw=2 expandtab ruler incsearch
+set number
+set ignorecase
+set backspace=indent,eol,start
+set cursorline
+set list
+
+
+
+here is my .vimrc file, hope it will be helpful.
+
+syntax enable
+set tabstop=2       " number of visual spaces per TAB
+set softtabstop=2   " number of spaces in tab when editing
+set expandtab       " tabs = spaces
+
+set number		" show line numbers
+set cursorline		" highlight the current line
+set showcmd		" show command in bottom bar
+filetype indent on	" load filetype specific indent files in ~/.vim/indent/*.vim
+set wildmenu
+set lazyredraw
+set showmatch		" show matches of {} [] ()
+
+set incsearch		" search as characters are entered
+set hlsearch		" highlight matches
+set ignorecase		" ignore upper/lower case when searching
+let mapleader = "," 	" leader is comma
+" turn off search highlight, mapping to ,<space>
+nnoremap <leader><space> :nohlsearch<CR>
+
+set backspace=indent,eol,start   " allows backspace to delete words
+Enable the kubelet autocomplete
+
+source <(kubectl completion bash) # setup autocomplete in bash into the current shell, bash-completion package should be installed first.
+echo "source <(kubectl completion bash)" >> ~/.bashrc # add autocomplete permanently to your bash shell.
+
+alias k=kubectl
+complete -F __start_kubectl k
