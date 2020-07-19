@@ -1,0 +1,65 @@
+1. To check the number of nodes
+
+kubectl get nodes -o wide
+
+2. To check taints on node01
+
+master $ kubectl describe node node01 | grep -i taint
+Taints:             <none>
+master $
+
+3.Create a taint on node01 with key of 'spray', value of 'mortein' and effect of 'NoSchedule'
+
+master $ kubectl taint node node01 spray=mortein:NoSchedule
+node/node01 tainted
+master $ kubectl describe node node01 | grep -i taint
+Taints:             spray=mortein:NoSchedule
+master $
+
+
+4. Create another pod named 'bee' with the NGINX image, which has a toleration set to the taint Mortein
+
+Image name: nginx
+Key: spray
+Value: mortein
+Effect: NoSchedule
+Status: Running
+
+kubectl run bee --image=nginx $gen > bee.yaml
+add tolerations in pod yaml file
+
+master $ cat bee.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: bee
+  name: bee
+spec:
+  tolerations:
+  - key: spray
+    operator: "Equal"
+    value: "mortein"
+    effect: "NoSchedule"
+  containers:
+  - image: nginx
+    name: bee
+    resources: {}
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+status: {}
+master $
+
+kubectl create -f bee.yaml
+
+5. How to untaint a node
+
+master $ kubectl describe node master | grep -i taint
+Taints:             node-role.kubernetes.io/master:NoSchedule
+master $
+master $ kubectl taint node master node-role.kubernetes.io/master:NoSchedule-
+node/master untainted
+master $ kubectl describe node master | grep -i taint
+Taints:             <none>
+master $
