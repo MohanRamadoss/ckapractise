@@ -1,0 +1,289 @@
+
+Multi Container Pods:
+======================
+
+1. Create a multi-container pod with 2 containers.
+Use the spec given on the right.
+
+Name: yellow
+Container 1 Name: lemon
+Container 1 Image: busybox
+Container 2 Name: gold
+Container 2 Image: redis
+
+master $ cat multi.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: yellow
+  name: yellow
+spec:
+  containers:
+  - image: busybox
+    name: lemon
+  - image: redis
+    name: gold
+    resources: {}
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+status: {}
+master $
+
+
+2. The 'app'lication outputs logs to the file /log/app.log. View the logs and try to identify the user having issues with Login.
+Inspect the log file inside the pod
+
+kubectl exec app -n  elastic-stack -it -- cat /log/app.log
+
+3. Edit the pod to add a sidecar container to send logs to ElasticSearch. Mount the log volume to the sidecar container..
+Only add a new container. Do not modify anything else. Use the spec on the right.
+Name: app
+Container Name: sidecar
+Container Image: kodekloud/filebeat-configured
+Volume Mount: log-volume
+Mount Path: /var/log/event-simulator/
+Existing Container Name: app
+Existing Container Image: kodekloud/event-simulator
+
+master $ cat /var/answers/answer-app.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: app
+  namespace: elastic-stack
+  labels:
+    name: app
+spec:
+  containers:
+  - name: app
+    image: kodekloud/event-simulator
+    volumeMounts:
+    - mountPath: /log
+      name: log-volume
+
+  - name: sidecar
+    image: kodekloud/filebeat-configured
+    volumeMounts:
+    - mountPath: /var/log/event-simulator/
+      name: log-volume
+
+  volumes:
+  - name: log-volume
+    hostPath:
+      # directory location on host
+      path: /var/log/webapp
+      # this field is optional
+      type: DirectoryOrCreatemaster $
+master $
+
+4. Create a Pod with three busy box containers with commands “ls; sleep 3600;”, “echo Hello World; sleep 3600;” and “echo this is the third container; sleep 3600” 
+respectively and check the status
+
+master $ cat multi-bb.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: multi-bb
+  name: multi-bb
+spec:
+  containers:
+  - image: busybox
+    name: bb1
+    command: ["sh", "-c", "ls; sleep 3600"]
+  - image: busybox
+    name: bb2
+    command: ["sh", "-c", "echo Hello world; sleep 3600"]
+  - image: buxybox
+    name: bb3
+    command: ["sh", "-c", "echo this is the third container; sleep 3600"]
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+status: {}
+master $
+
+master $ kubectl logs multi-bb -c bb1
+bin
+dev
+etc
+home
+proc
+root
+sys
+tmp
+usr
+var
+master $ kubectl logs multi-bb -c bb2
+Hello world
+master $ kubectl logs multi-bb -c bb3
+this is the third container
+master $
+
+
+5. Create a Pod with main container busybox and which executes this “while true; do echo ‘Hi I am from Main container’ >> /var/log/index.html; sleep 5; done” and with 
+sidecar container with nginx image which exposes on port 80. Use emptyDir Volume and mount this volume on path /var/log for busybox and on path /usr/share/nginx/html for 
+nginx container. Verify both containers are running.
+
+master $ cat mcp.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: mcp
+  name: mcp
+spec:
+  volumes:
+  - name: foo
+    emptyDir: {}
+  containers:
+  - image: busybox
+    name: mainc
+    command: ["sh", "-c", "while true; do echo Hi I am from main container>> /var/log/index.html; sleep 5; done"]
+    volumeMounts:
+    - name: foo
+      mountPath: /var/log
+  - image: nginx
+    name: sidec
+    ports:
+    - containerPort: 80
+    volumeMounts:
+    - name: foo
+      mountPath: /usr/share/nginx/html
+    resources: {}
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+status: {}
+
+master $ kubectl exec mcp -c mainc -- cat /var/log/index.html
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+master $
+
+master $ kubectl exec mcp -c sidec -- ls /usr/share/nginx/html
+index.html
+master $ kubectl exec mcp -c sidec -- cat /usr/share/nginx/html
+cat: /usr/share/nginx/html: Is a directory
+command terminated with exit code 1
+master $
+master $ kubectl exec mcp -c sidec -- cat /usr/share/nginx/html/index.html
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+Hi I am from main container
+master $
+
+
+Init containers:
+=======================
+1. Update the pod red to use an initContainer that uses the busybox image and sleeps for 20 seconds
+Pod: red
+initContainer Configured Correctly
+
+spec:
+  initContainers:
+  - image: busybox
+    name: bb
+    command: [ 'sh', '-c', 'sleep 20']
+  containers:
+  - command:
+    - sh
+    - -c
+    - echo The app is running! && sleep 3600
+    image: busybox:1.28
+    name: red-container
+    
+    we can echo some text with below
+    command: ['sh', '-c', 'echo praveen how are you!!!! && sleep 20']
+    
+2. Init container creates a directory and a file. Main container checks for the existance of file and if file exists sleep and if not there it should exit
+
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: initc
+  name: initc
+spec:
+  initContainers:
+  - image: busybox:1.28
+    name: bb
+    command: ['sh','-c','mkdir /workdata/test; echo sometestpraveen > /workdata/test/abcd']
+    volumeMounts:
+    - mountPath: /workdata
+      name: foo
+  containers:
+  - image: nginx
+    name: nginxc
+    volumeMounts:
+    - mountPath: /workdata
+      name: foo
+    command: ['sh','-c','if [ -f /workdata/test/abcd ]; then sleep 2000; else exit; fi']   # note if syntax  if [ -f path ]; then sleep 2000; else exit; fi
+    resources: {}
+  volumes:
+  - name: foo
+    emptyDir: {}
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+status: {}
