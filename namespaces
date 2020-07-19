@@ -1,0 +1,37 @@
+1. Check number and names of namespaces
+kubectl get ns
+
+2. Check number of pods in research namespace
+kubectl get pods -n research
+
+3. Create redis image in finance namespace
+
+Create yaml file. And add namespace by editing yaml file
+master $ kubectl run redis --image=redis --dry-run=client -o yaml > redis.yaml
+master $ vi redis.yaml
+master $ kubectl create -f redis.yaml
+pod/redis created
+master $ kubectl get pods -n finance
+NAME      READY   STATUS    RESTARTS   AGE
+payroll   1/1     Running   0          4m51s
+redis     1/1     Running   0          8s
+master $
+
+4. To check the number of nodes in all namespaces
+kubectl get pods -A
+or 
+kubectl get pods --all-namespaces
+
+5. What DNS name should the Blue application use to access the database 'db-service' in its own namespace - 'marketing'.
+answer is de-service
+
+6. What DNS name should the Blue application use to access the database 'db-service' in the 'dev' namespace
+You can try it in the web application UI. Use port 3306.
+
+answer: db-service.dev.svc.cluster.local
+        service.namespace.svc.domainname
+        service -     db-service
+        namespace -   dev
+        domain -      cluster.local
+        
+        
