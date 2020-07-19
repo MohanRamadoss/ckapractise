@@ -13,7 +13,6 @@ centos
 
 yum install -y etcd
 etcdctl -h
-etcdctl backup -h
 etcdctl snapshot -h
 etcdctl snapshot save -h
 etcdctl snapshot save --help
