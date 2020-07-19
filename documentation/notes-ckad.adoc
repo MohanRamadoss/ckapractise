@@ -1,0 +1,1315 @@
+= Notes certification course
+:toc: left
+:imagesdir: ../documentation/images/
+
+----
+# Get complete cluster info
+kubectl cluster-info
+----
+
+.base attribute for k8s yaml files
+[source,yaml]
+----
+apiVersion:
+kind:
+metadata:
+spec:
+----
+
+.apiVersion values
+|===
+|Kind |Version
+
+|Pod
+|v1
+
+|Service
+|v1
+
+|ReplicaSet
+|apps/v1
+
+|Deployment
+|apps/v1
+
+|===
+
+== Pods
+
+.typical definition base for pod
+[source,yaml]
+----
+apiVersion: v1
+kind: Pod
+metadata:
+  name: aName
+  labels:
+    app: myapp
+spec:
+  containers:
+    - name: nginx
+      image: nginx
+----
+
+.Extract a definition into a yaml file
+----
+kubectl get pod <pod-name> -o yaml > pod-definition.yaml
+----
+
+.An alternative is to edit directly
+----
+kubectl edit pod <pod-name>
+----
+
+== ReplicaSet
+
+.typical definition for replicaset
+[source,yaml]
+----
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: myapp-replicaset
+  labels:
+    app: myapp
+spec:
+  replicas: 1
+  template:
+    metadata:
+      name: aName
+      labels:
+        app: myapp
+    spec:
+      containers:
+        - name: nginx
+          image: nginx
+  selector:
+    matchLabels:
+      app: myapp
+----
+
+.example of how labels are used in replicaset (to monitor already created pods)
+image::labels.png[]
+
+.Updating the replica set (is this the same as apply?)
+----
+kubectl replace -f <filename>.yml
+
+# or
+
+# Note that this does not update the acutal file, it will keep it's value of 1 in replicas attribute
+kubectl scale --replicas=4 -f <filename>.yml
+# or using type and label
+kubectl scale --replicas=3 deployment -l app=webapp
+----
+
+== Deployments
+
+image::deployment.png[]
+
+.typical definition for deployment
+[source,yaml]
+----
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp-deployment
+  labels:
+    app: myapp
+spec:
+  replicas: 1
+  template:
+    metadata:
+      name: aName
+      labels:
+        app: myapp
+    spec:
+      containers:
+        - name: nginx
+          image: nginx
+  selector:
+    matchLabels:
+      app: myapp
+----
+
+== Imperative commands
+
+Generate POD Manifest YAML file (-o yaml). Don't create it(--dry-run=client)::
++
+----
+#deprecated with generator
+kubectl run --generator=run-pod/v1 redis --image=redis:alpine --dry-run=client -o yaml
+
+kubectl run redis --image=redis:alpine --dry-run=client -o yaml
+----
+
+Generate Deployment YAML file (-o yaml). Don't create it(--dry-run=client)::
++
+----
+kubectl create deployment --image=nginx nginx --dry-run=client -o yaml
+----
+
+[IMPORTANT]
+kubectl create deployment does not have a --replicas option.
+You could first create it and then scale it using the kubectl scale command
+
+Save it to a file - (If you need to modify or add some other details)::
++
+----
+kubectl create deployment --image=nginx nginx --dry-run=client -o yaml > nginx-deployment.yaml
+----
+
+Create a Service named redis-service of type ClusterIP to expose pod redis on port 6379::
++
+----
+kubectl expose pod redis --port=6379 --name redis-service --dry-run=client -o yaml
+
+# or
+
+kubectl create service clusterip redis --tcp=6379:6379 --dry-run=client -o yaml
+----
+
+Create a Service named nginx of type NodePort to expose pod nginx's port 80 on port 30080 on the nodes::
++
+----
+kubectl expose pod nginx --port=80 --name nginx-service --dry-run=client -o yaml
+
+#(This will automatically use the pod's labels as selectors, but you cannot specify the node port. You have to generate a definition file and then add the node port in manually before creating the service with the pod.)
+
+# or
+
+kubectl create service nodeport nginx --tcp=80:80 --node-port=30080 --dry-run=client -o yaml
+----
+
+Different output types::
+
+* `-o json` Output a JSON formatted API object.
+
+* `-o name` Print only the resource name and nothing else.
+
+* `-o wide` Output in the plain-text format with any additional information.
+
+* `-o yaml` Output a YAML formatted API object.
+
+Reference: https://kubernetes.io/docs/reference/kubectl/conventions/
+
+https://kubernetes.io/docs/reference/kubectl/overview/
+
+https://kubernetes.io/docs/reference/kubectl/cheatsheet/
+
+== Namespace
+
+.get/create in another namespace than default
+[source,bash]
+----
+kubectl get pods --namespace=kube-system
+
+kubectl create --namespace=kube-system -f <file>.yml
+----
+
+It is also possible to define namespace in defintion file:
+
+[source,yaml]
+----
+apiVersion: v1
+kind: Pod
+metadata:
+  name: aName
+  namespace: kube-system
+  labels:
+    app: myapp
+spec:
+  containers:
+    - name: nginx
+      image: nginx
+----
+
+.example specifying new namespace
+[source,yaml]
+----
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dev
+----
+
+Then run create as usual with -f option
+
+or the imperative way
+
+----
+kubectl create namespace dev
+----
+
+Switch between namespaces::
++
+----
+kubectl config set-context $(kubectl config current-context) --namespace=dev
+----
+
+View in all namespaces::
++
+----
+kubectl get pods --all-namespaces
+----
+
+.resource quota
+[source,yaml]
+----
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: dev-quota
+  namespace: dev
+spec:
+  hard:
+    pods: "10"
+    request.cpu: "4"
+    request.memory: 5Gi
+    limits.cpu: "10"
+    limits.memory: 10Gi
+
+----
+
+.example of dns name when referring to service in other namespace
+----
+db-service.dev.svc.cluster.local
+----
+
+== Configuration
+
+.mapping between docker command and k8s
+image::docker-cmd-mapping.png[]
+
+[NOTE]
+====
+Remember, you CANNOT edit specifications of an existing POD other than the below.
+
+* spec.containers[*].image
+* spec.initContainers[*].image
+* spec.activeDeadlineSeconds
+* spec.tolerations
+
+So if you want to change the command or args for a running pod, you must delete and recreate it.
+
+Examples:
+
+. `kubectl edit pod <pod name>` (will be saved in tmp dir)
+. `kubectl delete pod <pod_name>`
+. `kubectl create -f <path_to_saved_tmp_file>`
+
+Another way:
+
+. `kubectl get pod webapp -o yaml > my-new-pod.yaml`
+. `vi my-new-pod.yaml`
+. `kubectl delete pod <pod_name>>`
+. `kubectl create -f my-new-pod.yaml`
+
+====
+
+=== ConfigMaps
+
+----
+# imperative way
+kubectl create configmap appconfig --from-literal=APP_COLOR=blue
+kubectl create configmap appconfig --from-file=app_config.properties
+
+# declarative way
+kubectl create -f <yaml>
+----
+
+.ConfigMap declaration yaml file
+[source,yaml]
+----
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: appconfig
+data:
+  APP_COLOR: blue
+  APP_MODE: production
+----
+
+----
+kubectl get configmaps
+
+kubectl describe configmaps
+----
+
+.example of using all properties of a configMap in a pod definition
+[source,yaml]
+----
+apiVersion: v1
+kind: Pod
+metadata:
+  name: aName
+  namespace: kube-system
+  labels:
+    app: myapp
+spec:
+  containers:
+    - name: nginx
+      image: nginx
+      envFrom:
+        - configMapRef:
+            name: appconfig
+----
+
+.example of using a single property of a configMap in a pod definition
+[source,yaml]
+----
+apiVersion: v1
+kind: Pod
+metadata:
+  name: aName
+  namespace: kube-system
+  labels:
+    app: myapp
+spec:
+  containers:
+    - name: nginx
+      image: nginx
+      env:
+        - name: APP_COLOR
+          valueFrom:
+            configMapKeyRef:
+              name: appconfig
+              key: APP_COLOR
+----
+
+=== Secrets
+
+----
+# imperative way
+kubectl create secret generic appsecret --from-literal=DB_HOST=mysql \
+                                        --from-literal=DB_PASS=passw0rd
+
+kubectl create secret generic appsecret --from-file=app_config.properties
+
+# declarative way
+kubectl create -f <yaml>
+----
+
+.Secret declaration yaml file
+[source,yaml]
+----
+apiVersion: v1
+kind: Secret
+metadata:
+  name: appsecret
+data:
+  DB_HOST: mysql
+  DB_PASS: passw0rd
+----
+
+[IMPORTANT]
+====
+The key/values in a secret declarative definition file must be encoded!
+
+`echo -n 'mysql' | base64`
+
+`echo -n 'passw0rd' | base64`
+
+[source,yaml]
+----
+apiVersion: v1
+kind: Secret
+metadata:
+  name: appsecret
+data:
+  DB_HOST: bXlzcWw=
+  DB_PASS: cGFzc3cwcmQ=
+----
+
+A value can be decoded back using
+`echo -n 'cGFzc3cwcmQ=' | base64 --decode`
+====
+
+----
+kubectl get secrets
+
+kubectl describe secrets
+
+# To view the values as well
+kubectl get secret appsecret -o yaml
+----
+
+.example of using all properties of a Secret in a pod definition
+[source,yaml]
+----
+apiVersion: v1
+kind: Pod
+metadata:
+  name: aName
+  namespace: kube-system
+  labels:
+    app: myapp
+spec:
+  containers:
+    - name: nginx
+      image: nginx
+      envFrom:
+        - secretRef:
+            name: appsecret
+----
+
+.example of using a single property of a Secret in a pod definition
+[source,yaml]
+----
+apiVersion: v1
+kind: Pod
+metadata:
+  name: aName
+  namespace: kube-system
+  labels:
+    app: myapp
+spec:
+  containers:
+    - name: nginx
+      image: nginx
+      env:
+        - name: DB_PASS
+          valueFrom:
+            secretKeyRef:
+              name: appsecret
+              key: DB_PASS
+----
+
+[NOTE]
+====
+Remember that secrets encode data in base64 format.
+Anyone with the base64 encoded secret can easily decode it.
+As such the secrets can be considered as not very safe.
+
+The concept of safety of the Secrets is a bit confusing in Kubernetes.
+The https://kubernetes.io/docs/concepts/configuration/secret[kubernetes documentation page] and a lot of blogs out there refer to secrets as a "safer option" to store sensitive data.
+They are safer than storing in plain text as they reduce the risk of accidentally exposing passwords and other sensitive data.
+In my opinion it's not the secret itself that is safe, it is the practices around it.
+
+Secrets are not encrypted, so it is not safer in that sense.
+However, some best practices around using secrets make it safer.
+As in best practices like:
+
+* Not checking-in secret object definition files to source code repositories.
+
+* https://kubernetes.io/docs/tasks/administer-cluster/encrypt-data/[Enabling Encryption at Rest] for Secrets so they are stored encrypted in ETCD.
+
+Also the way kubernetes handles secrets.
+Such as:
+
+* A secret is only sent to a node if a pod on that node requires it.
+
+* Kubelet stores the secret into a tmpfs so that the secret is not written to disk storage.
+
+* Once the Pod that depends on the secret is deleted, kubelet will delete its local copy of the secret data as well.
+
+Read about the https://kubernetes.io/docs/concepts/configuration/secret/#protections[protections] and https://kubernetes.io/docs/concepts/configuration/secret/#risks[risks] of using secrets https://kubernetes.io/docs/concepts/configuration/secret/#risks[here]
+
+Having said that, there are other better ways of handling sensitive data like passwords in Kubernetes, such as using tools like Helm Secrets, https://www.vaultproject.io/[HashiCorp Vault].
+
+====
+
+=== Security context
+
+How to set docker security related configs, such as user to run, or adding/removing linux capabilites such as MAC_ADMIN.
+
+.example setting user id for all containers running in pod (pod level)
+[source,yaml]
+----
+apiVersion: v1
+kind: Pod
+metadata:
+  name: aName
+  labels:
+    app: myapp
+spec:
+  securityContext:
+    runAsUser: 1000
+  containers:
+    - name: nginx
+      image: nginx
+----
+
+.example setting user id and adding a capability for a container (container level)
+[source,yaml]
+----
+apiVersion: v1
+kind: Pod
+metadata:
+  name: aName
+  labels:
+    app: myapp
+spec:
+  containers:
+    - name: nginx
+      image: nginx
+      securityContext:
+        runAsUser: 1000
+        capabilities:
+          add: ["MAC_ADMIN"]
+----
+
+[NOTE]
+Declaring capabilities is only possible at container level
+
+----
+# Finding out the user running a container
+kubectl exec ubuntu-sleeper whoami
+
+# Setting the data
+kubectl exec ubuntu-sleeper -- date -s '19 APR 2012 11:14:00'
+----
+
+=== Service accounts
+
+Service accounts are used by applications for interacting with K8s (apis etc).
+Typically apps: Prometheus (for accessing metric), GitLab/Jenkins (for deploying applications).
+
+----
+kubectl create serviceaccount <name>
+
+kubectl get serviceaccount
+
+# A token is autmatically created and stored as a secret, use `kubectl describe` to see the name of token
+kubectl describe serviceaccount <name>
+
+# To see the secret
+kubectl describe secret <token_name>
+----
+
+The token can be used an authorization Bearer token in calls to api.
+
+When the application using the token is deployed in the same K8s-cluster, then there is no need to export tokens.
+Instead the token is provided to a pod by mounting it as a _volume_.
+
+In k8s, every namespace has a default service account created.
+This gets mounted by default in all pods running in namespace.
+See "mounts" when doing `kubectl describe pod xxx`.
+
+[IMPORTANT]
+The default namespace service account is very restricted, it can only run very basic api queries.
+
+It is possible to define the pod to use other service accounts:
+
+[source,yaml]
+----
+apiVersion: v1
+kind: Pod
+metadata:
+  name: aName
+spec:
+  containers:
+    - name: nginx
+      image: nginx
+  serviceAccountName: my-account-name
+  # If you want to disable auto-mounting of default service tokens
+  automountServiceAccountToken: false
+----
+
+=== Resource requirements
+
+image::resources.png[]
+
+image::resource-limiting.png[]
+
+image::resource-notes.png[]
+
+=== Taints and toleration
+
+Taints and tolerations are used to restrict which pods that can be scheduled on a node.
+
+* Taints are set on nodes
+
+* Tolerations are set on pods
+
+Syntax for setting taint::
+kubectl taint nodes <node-name> key=value:<taint-effect>
++
+There are three taint-effects: NoSchedule, PreferNoSchedule, NoExecute
++
+----
+kubectl taint nodes node1 app=blue:NoSchedule
+----
+
+Tolerations are added in definition::
++
+[source,yaml]
+----
+apiVersion: v1
+kind: Pod
+metadata:
+  name: aName
+spec:
+  containers:
+    - name: nginx
+      image: nginx
+  tolerations:
+    - key: "app"
+      operator: "Equal"
+      value: "blue"
+      effect: "NoSchedule"
+----
+
+----
+# Example of untainting a node
+kubectl taint nodes master node-role.kubernetes.io/master:NoSchedule-
+----
+
+Taint will only make sure that a certain node will accept a certain type of pods.
+But these pods may end up in other nodes as well.
+If the requirement is to run a type of pod on a specific node only, use concept <<Node affinity>>.
+
+=== Node selectors
+
+Sometimes we want to run "heavy" applications on nodes that are large enough to handle it.
+This assumes that we may have a cluster with large nodes, and some smaller nodes.
+We can then label the large nodes and make sure that the pod ends up there.
+
+[source,yaml]
+----
+apiVersion: v1
+kind: Pod
+metadata:
+  name: aName
+spec:
+  containers:
+    - name: nginx
+      image: nginx
+  nodeSelector:
+    size: Large
+----
+
+Syntax for labelling: `kubectl label nodes <node-name> <label-key>=<label-value>`
+
+----
+kubectl label nodes node01 size=Large
+----
+
+Using node selectors has its limitations.
+We cannot specify things like "run on Large or Medium" or "run only on NOT Small".
+For this, see <<Node affinity>>
+
+=== Node affinity
+
+.This does exactly the same as in the node selectors example
+[source,yaml]
+----
+apiVersion: v1
+kind: Pod
+metadata:
+  name: aName
+spec:
+  containers:
+    - name: nginx
+      image: nginx
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: size
+                operator: In
+                values:
+                  - Large
+----
+
+.example of "run on Large and Medium"
+[source,yaml]
+----
+apiVersion: v1
+kind: Pod
+metadata:
+  name: aName
+spec:
+  containers:
+    - name: nginx
+      image: nginx
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: size
+                operator: In
+                values:
+                  - Large
+                  - Medium
+----
+
+.example of "run on not Small"
+[source,yaml]
+----
+apiVersion: v1
+kind: Pod
+metadata:
+  name: aName
+spec:
+  containers:
+    - name: nginx
+      image: nginx
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: size
+                operator: NotIn
+                values:
+                  - Small
+----
+
+About affinity types:
+
+* requiredDuringSchedulingIgnoredDuringExecution: This states that the scheduler should match the affinity rules, and if no node could be found, it does not deploy the pod.
+Already existing pods (when the affinity is set) is ignored and continues to run.
+
+* preferredDuringSchedulingIgnoredDuringExecution: States that if the scheduler cannot find a node that applies to the rules, then just run it on any node.
+
+====
+Make sure you check out these tips and tricks from other students who have cleared the exam:
+
+https://www.linkedin.com/pulse/my-ckad-exam-experience-atharva-chauthaiwale/
+
+https://medium.com/@harioverhere/ckad-certified-kubernetes-application-developer-my-journey-3afb0901014
+
+https://github.com/lucassha/CKAD-resources
+====
+
+== Multi-container pods
+
+There are three types of multi-container pods:
+
+* sidecar
+
+* adapter
+
+* ambassador
+
+== Observability
+
+Readiness probe is useful when starting containe where the container takes some time to fully warmup.
+K8s does not set the container to state Ready until the readiness probe succeeds.
+
+.example of readiness probe
+[source,yaml]
+----
+apiVersion: v1
+kind: Pod
+metadata:
+  name: aName
+spec:
+  containers:
+    - name: nginx
+      image: nginx
+      readinessProbe:
+        httpGet:
+          path: /api/ready
+          port: 8080
+        initialDelaySeconds: 10
+        periodSeconds: 5
+        # defaults to 3
+        failureThreshold: 8
+----
+
+Liveness probe helps to detect if an application no longer works, even thought the container is healthy.
+It sends a "ping" to the application, and if it fails it will delete the pod, effectively restarting it.
+
+.example of liveness probe
+[source,yaml]
+----
+apiVersion: v1
+kind: Pod
+metadata:
+  name: aName
+spec:
+  containers:
+    - name: nginx
+      image: nginx
+      livenessProbe:
+        httpGet:
+          path: /api/ready
+          port: 8080
+        initialDelaySeconds: 10
+        periodSeconds: 5
+        # defaults to 3
+        failureThreshold: 8
+----
+
+== Logging
+
+----
+kubectl logs -f webapp-1
+
+# if pod contains multiple containers, the wanted container name must given as the last argument
+kubectl logs -f webapp-1 containername
+----
+
+== Entering a pod
+
+----
+kubectl exec -it <pod-name> -- bash
+
+# also possible copying files
+kubectl cp <pod-name>:</path/to/remote/file> </path/to/local/file>
+----
+
+
+== Monitoring
+
+Metrics server is an in-memory server that monitors the whole K8s cluster.
+For more advanced solutions, look at Prometheus, ELK stack etc.
+
+image::metrics.png[]
+
+Enable on minikube by:
+
+----
+minikube addons enable metrics-server
+----
+
+Enable on others:
+
+----
+git clone https://github.com/kubernetes-incubator/metrics-serve.git
+
+cd into directory
+
+kubectl create -f .
+----
+
+View:
+
+----
+kubectl top node
+
+kubectl top pod
+----
+
+== Labels and selectors
+
+image::labels-selectors.png[]
+
+Usage from command line:
+
+----
+kubectl get pods --selector app=app3
+
+kubectl get all --selector env=prod,bu=finance,tier=frontend
+----
+
+== Rollout
+
+----
+kubectl rollout status deployment/myapp-deployment
+
+kubectl rollout history deployment/myapp-deployment
+
+kubectl rollout undo deployment/myapp-deployment
+----
+
+image::deployment-strategy.png[]
+
+Rolling update is the default.
+
+== Jobs and cronjobs
+
+Some containers should just perform a task then exit.
+K8s default pod mode is "restartPolicy: always", which results in the pod getting started again and again.
+
+To set K8s to just run it once:
+
+image::restartpolicy.png[]
+
+Kubernetes jobs are like replicasets, with the difference that they will make sure to bring up all replicas, have them perform their tasks and then finish.
+
+.example of job definition
+[source,yaml]
+----
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: math-add-job
+spec:
+  # execute and make sure that there are 3 completions
+  completions: 3
+  # create three prods in parallel (the default is sequentially)
+  parallelism: 3
+  template:
+    spec:
+      containers:
+        - name: math-add
+          image: ubuntu
+          command: ['expr', '3', '+', '2']
+      restartPolicy: Never
+----
+
+----
+kubectl create -f job-definition.yaml
+
+kubectl get jobs
+
+kubectl get job math-add-job
+----
+
+Cronjob is a job that can be scheduled.
+
+.example of cronjob definition
+[source,yaml]
+----
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: reporting-cron-job
+spec:
+  schedule: "*/1 * * * *"
+  jobTemplate:
+    spec:
+      # execute and make sure that there are 3 completions
+      completions: 3
+      # create three prods in parallel (the default is sequentially)
+      parallelism: 3
+      template:
+        spec:
+          containers:
+            - name: math-add
+              image: ubuntu
+              command: ['expr', '3', '+', '2']
+          restartPolicy: Never
+
+----
+
+----
+kubectl create -f cron-job-definition.yaml
+
+kubectl get cronjobs
+----
+
+== Services
+
+NodePort is for letting an outside network access pods inside the cluster.
+Like from localhost -> app run in K8s
+
+ClusterIP is used for letting pods communicate with each other inside the cluster.
+It is a way to group pods and having them accessed by other pods via a service.
+
+=== NodePort
+
+image::services.png[]
+
+.example of nodeport service definition
+[source,yaml]
+----
+apiVersion: v1
+kind: Service
+metadata:
+  name: myapp-service
+spec:
+  type: NodePort
+  ports:
+    - port: 80
+      targetPort: 80
+      nodePort: 30008
+  selector:
+    app: myapp
+    type: frontend
+----
+
+----
+kubectl create -f service-definition.yml
+
+kubectl get services
+----
+
+=== ClusterIp
+
+image::service-clusterip.png[]
+
+.example of clusterip service definition
+[source,yaml]
+----
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 80
+  selector:
+    app: myapp
+    type: backend
+----
+
+== Ingress networking
+
+image::ingress.png[]
+
+=== Ingress controller
+
+The course states that there is no ingress controller by default, one must be installed.
+The example they are using seems old, new ways found when googling (like https://kubernetes.io/docs/tasks/access-application-cluster/ingress-minikube/).
+Below pic shows the way described in course
+
+image::ingress-controller.png[]
+
+=== Ingress resources
+
+[source,yaml]
+----
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: ingress-wear
+spec:
+  backend:
+    serviceName: wear-service
+    servicePort: 80
+----
+
+----
+kubectl create -f ingress-wear.yml
+
+kubectl get ingress
+----
+
+==== Rules
+
+image::ingress-rule-1.png[200,200]
+
+[source,yaml]
+----
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: ingress-wear-watch
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /wear
+            backend:
+              serviceName: wear-service
+              servicePort: 80
+
+          - path: /watch
+            backend:
+              serviceName: watch-service
+              servicePort: 80
+----
+
+----
+kubectl describe ingress ingress-wear-watch
+----
+
+image::ingress-rule-2.png[400,400]
+
+[source,yaml]
+----
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: ingress-wear-watch
+spec:
+  rules:
+    - host: wear.my-online-store.com
+      http:
+        paths:
+         - backend:
+             serviceName: wear-service
+             servicePort: 80
+
+    - host: watch.my-online-store.com
+      http:
+        paths:
+          - backend:
+              serviceName: watch-service
+              servicePort: 80
+----
+
+== Networking policies
+
+.Ingress and Egress
+image::ingressegress.png[500,500]
+
+Networking policies allow us to define policies like "the web pod cannot communicate with the db pod directly".
+
+image::restricting-pod-comm.png[500,500]
+
+[source,yaml]
+----
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: db-policy
+spec:
+  podSelector:
+    matchLabels:
+      role: db
+  policyTypes:
+  - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              name: api-pod
+      ports:
+        - protocol: TCP
+          port: 3306
+----
+
+----
+kubectl get networkpolicies
+
+kubectl create -f policy-definition.yml
+----
+
+.example of an egress (internal only allowed to send traffic to mysql and payroll)
+[source,yaml]
+----
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: internal-policy
+spec:
+  podSelector:
+    matchLabels:
+      role: internal
+  policyTypes:
+  - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              name: mysql
+      ports:
+        - protocol: TCP
+          port: 3306
+    - to:
+       - podSelector:
+           matchLabels:
+             name: payroll
+      ports:
+        - protocol: TCP
+          port: 8080
+----
+
+== Volumes
+
+[source,yaml]
+----
+apiVersion: v1
+kind: Pod
+metadata:
+  name: random-number-generator
+spec:
+  containers:
+    - image: alpine
+      name: alpine
+      command: ["/bin/sh", "-c"]
+      args: ["shuf -i 0-100 -n 1 >> /opt/number.out;"]
+      volumeMounts:
+        - mountPath: /opt
+          name: data-volume
+
+  volumes:
+    - name: data-volume
+      hostPath:
+        path: /data
+        type: Directory
+----
+
+image::volumes.png[300,300]
+
+=== Persistent volumes (PV)
+
+Just using volumes as above means that every user (deploying pods) must configure volumes for each container. This does not scale well. Kubernetes provides a way of centralizing the handling via persistent volumes.
+
+Persistent volumes = a cluster wide pool of volumes administered by an k8s-admin.
+
+.creating a persistent volume (done by administrators)
+[source,yaml]
+----
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-vol1
+spec:
+  accessModes:
+    - ReadWriteOnce
+  capacity:
+    storage: 1Gi
+  awsElasticBlockStore:
+    volumeID: <volume-id>
+    fsType: ext4
+  persistentVolumeReclaimPolicy: Delete
+----
+
+About _persistentVolumeReclaimPolicy_:
+
+- Retain -- manual reclamation
+- Recycle -- basic scrub (`rm -rf /thevolume/*`) _deprecated_
+- Delete -- associated storage asset such as AWS EBS, GCE PD, Azure Disk, or OpenStack Cinder volume is deleted
+
+----
+kubectl create -f pv-definition.yml
+
+kubectl get persistentvolume
+----
+
+=== Persistent volume claims (PVC)
+
+A PVC gets bound to a PV if it matches criteria specified in claim. The binding is handled by k8s, and it will automatically bind to a PV that matches criteria. If there are several PV:s that matches, it is possible to select a specific by using labels.
+
+[IMPORTANT]
+If a PVC of "size 1" gets bound to a PV of "size 2" (for instance if no other PVC are available that matches "size 1"), then it will hog that PV, no other PVC of can be bound, meaning that the remaining unused size of the PV cannot be utilized.
+
+If there are no PV:s available that matches a PVC, then the PVC will be set on queue until an admin provides more PV:s.
+
+.creating a PVC
+[source,yaml]
+----
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: myclaim
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 500Mi
+----
+
+----
+kubectl create myclaim-definition.yml
+
+kubectl get persistentvolumeclaim
+----
+
+==== Using PVC in pods (or replicasets or deployments)
+
+Once you create a PVC use it in a POD definition file by specifying the PVC Claim name under persistentVolumeClaim section in the volumes section like this:
+
+[source,yaml]
+----
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mypod
+spec:
+  containers:
+    - name: myfrontend
+      image: nginx
+      volumeMounts:
+        - mountPath: "/var/www/html"
+          name: mypd
+  volumes:
+    - name: mypd
+      persistentVolumeClaim:
+        claimName: myclaim
+----
+
+The same is true for ReplicaSets or Deployments. Add this to the pod template section of a Deployment on ReplicaSet.
+
+image::volumes-pv-pvc.png[]
