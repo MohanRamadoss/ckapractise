@@ -3,25 +3,19 @@
  clean every thing on the server
  kubectl delete all --all
 
-```
+
  kubectl get all
-``` 
- 
-``` 
+
  kubectl get all -A 
-```
 
 
 get pod in all namespaces
-```
+
 kubectl get pod --all-namespaces
-```
 
 get pod with labels
-```
-kubectl get pod --show-labels
-```
 
+kubectl get pod --show-labels
 
 aliases
 
