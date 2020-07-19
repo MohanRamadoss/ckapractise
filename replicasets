@@ -1,0 +1,56 @@
+1. To check for number of replicasets in the default namespace
+kubectl get rs
+
+2. To describe the replicaset
+kubectl describe rs replicasetname
+kubectl describe rs new-replica-set
+
+3. Create nginx replicaset with 2 replicas
+master $ cat replicaset-definition-1.yaml
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: replicaset-1
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      tier: frontend
+  template:
+    metadata:
+      labels:
+        tier: frontend
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
+
+kubectl create -f replicaset-definition-1.yaml
+
+Note: note the label of the pod is same as selector->matchLabels
+
+4. Deleting replicasets
+master $ kubectl get rs
+NAME              DESIRED   CURRENT   READY   AGE
+new-replica-set   4         4         0       7m47s
+replicaset-1      2         2         2       2m50s
+replicaset-2      2         2         2       15s
+master $ kubectl delete rs replicaset-1
+replicaset.apps "replicaset-1" deleted
+master $ kubectl delete rs replicaset-2
+replicaset.apps "replicaset-2" deleted
+master $
+
+
+5. We can update the image of the container in the replicaset using below command
+kubectl set image rs new-replica-set busybox-container=busybox
+Also using updating yaml file.
+
+But the changes will not be reflected in the pods already running. To get the updated images in the pods, we need to delete the pods, so replicaset creates 
+new pods with the updated image.
+
+6. Scale the existing replicaset to 5 pods.
+kubectl scale rs new-replica-set --replicas=5
+
+7. Scale down existing replicaset to 2 pods.
+kubectl scale rs new-replica-set --replicas=2
