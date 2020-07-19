@@ -41,3 +41,6 @@ master $
 5. By deault the service created - ClusterIP
    To access from outside we need NodePort service
    
+   
+   
+  
