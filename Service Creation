@@ -2,3 +2,42 @@ Creating a pod and expose to a service:
 
 kubectl run nginx-resolver --image=nginx
 kubectl expose pod nginx-resolver --name=nginx-resolver-service --port=80  --type=ClusterIP
+
+
+
+1. To check the number of services in the default namespace
+kubectl get svc
+
+2. To check the details of the service.
+kubectl describe svc kubernetes
+
+3. To check the labels on a service.
+master $ kubectl get svc --show-labels
+NAME         TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE     LABELS
+kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP   4m19s   component=apiserver,provider=kubernetes
+master $
+
+4. Create a new service to access with below:
+Name: webapp-service; Type: NodePort; targetPort: 8080; port: 8080; nodePort: 30080; selector: simple-webapp
+
+master $ kubectl expose deployment simple-webapp-deployment --type=NodePort --target-port=8080 --port=8080 --name=webapp-service $gen > svc.yaml
+
+Add nodePort 30080 by editing yaml file.
+
+master $ vi svc.yaml
+master $ kubectl get svc
+NAME         TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
+kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP   13m
+
+create service using yaml file
+master $ kubectl create -f svc.yaml
+service/webapp-service created
+master $ kubectl get svc
+NAME             TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)          AGE
+kubernetes       ClusterIP   10.96.0.1       <none>        443/TCP          13m
+webapp-service   NodePort    10.102.58.168   <none>        8080:30080/TCP   1s
+master $
+
+5. By deault the service created - ClusterIP
+   To access from outside we need NodePort service
+   
