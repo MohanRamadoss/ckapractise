@@ -1,0 +1,62 @@
+
+1. Create ubuntu-sleeper-2 pod with ubuntu image and uses command line aruguments sleep 5000
+
+master $ cat ubuntu-sleeper-2.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ubuntu-sleeper-2
+spec:
+  containers:
+  - name: ubuntu
+    image: ubuntu
+    command:
+    - sleep
+    - "5000"
+master $
+
+2. Create a pod with the given specifications. By default it displays a 'blue' background. Set the given command line arguments to change it to 'green'
+Pod Name: webapp-green
+Image: kodekloud/webapp-color
+Command line arguments: --color=green
+
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: webapp-green
+  name: webapp-green
+spec:
+  containers:
+  - args:
+    - color
+    - green
+    image: kodekloud/webapp-color
+    name: webapp-green
+    resources: {}
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+status: {}
+master $ kubectl run webapp-green --image=kodekloud/webapp-color --color green $gen
+Error: unknown flag: --color
+See 'kubectl run --help' for usage.
+master $ kubectl run webapp-green --image=kodekloud/webapp-color color green $gen
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: webapp-green
+  name: webapp-green
+spec:
+  containers:
+  - args:
+    - --color
+    - green
+    image: kodekloud/webapp-color
+    name: webapp-green
+    resources: {}
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+status: {}
