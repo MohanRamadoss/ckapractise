@@ -1,0 +1,155 @@
+alias gen='--dry-run=client -o yaml'
+
+1. Deploy a pod named nginx-pod using the nginx:alpine image.
+
+Check yaml file with below command:
+kubectl run nginx-pod --image=nginx:alpine $gen 
+
+kubectl run nginx-pod --image=nginx:alpine
+
+
+2. Deploy a redis pod using the redis:alpine image with the labels set to tier=db.
+
+Check yaml file with below command
+master $ kubectl run redis --image=redis:alpine -l tier=db $gen
+
+master $ kubectl run redis --image=redis:alpine -l tier=db
+
+3. Create a service redis-service to expose the redis application within the cluster on port 6379.
+Service: redis-service
+Port: 6379
+Type: ClusterIp
+Selector: tier=db
+
+Check yaml file with the below command
+master $ kubectl expose pod redis --type=ClusterIP --port=6379 --name=redis-service $gen
+
+master $ kubectl expose pod redis --type=ClusterIP --port=6379 --name=redis-service
+
+
+4. Create a deployment named webapp using the image kodekloud/webapp-color with 3 replicas
+
+Check the yaml file with below
+master $ kubectl create deployment webapp --image=kodekloud/webapp-color $gen
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: webapp
+  name: webapp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: webapp
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: webapp
+    spec:
+      containers:
+      - image: kodekloud/webapp-color
+        name: webapp-color
+        resources: {}
+status: {}
+
+master $ kubectl create deployment webapp --image=kodekloud/webapp-color $gen > depploy.yaml
+
+Edit yaml file to add replicas to 3
+master $ vi depploy.yaml
+master $ ls -ltr
+total 12
+drwxr-xr-x 2 root root 4096 May 21 12:41 Desktop
+drwxr-xr-x 4 root root 4096 Jun  8 22:04 go
+-rw-r--r-- 1 root root  412 Jul  7 15:05 depploy.yaml
+
+Create deployment with below command
+master $ kubectl create -f depploy.yaml --record
+deployment.apps/webapp created
+master $ kubectl rollout history deployment webapp
+deployment.apps/webapp
+REVISION  CHANGE-CAUSE
+1         kubectl create --filename=depploy.yaml --record=true
+
+
+5. Create a new pod called custom-nginx using the nginx image and expose it on container port 8080
+
+master $ kubectl run custom-nginx --image=nginx --port=8080  $gen
+
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: custom-nginx
+  name: custom-nginx
+spec:
+  containers:
+  - image: nginx
+    name: custom-nginx
+    ports:
+    - containerPort: 8080
+    resources: {}
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+status: {}
+master $
+
+master $ kubectl run custom-nginx --image=nginx --port=8080
+
+6. Create a new namespace called dev-ns.
+master $ kubectl create ns dev-ns
+namespace/dev-ns created
+
+7. Create a new deployment called redis-deploy in the dev-ns namespace with the redis image. It should have 2 replicas.
+
+master $ kubectl create deployment redis-deploy --image=redis --namespace=dev-ns $gen
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: redis-deploy
+  name: redis-deploy
+  namespace: dev-ns
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis-deploy
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: redis-deploy
+    spec:
+      containers:
+      - image: redis
+        name: redis
+        resources: {}
+status: {}
+
+master $ kubectl create deployment redis-deploy --image=redis --namespace=dev-ns $gen > redis.yaml
+
+Update replicasets to 2
+master $ vi redis.yaml
+master $ kubectl create -f redis.yaml
+deployment.apps/redis-deploy created
+master $ kubectl get deployments.apps
+NAME     READY   UP-TO-DATE   AVAILABLE   AGE
+webapp   3/3     3            3           11m
+master $
+
+8. Create a pod called httpd using the image httpd:alpine in the default namespace. Next, create a service of type ClusterIP by the same name (httpd). 
+The target port for the service should be 80.
+
+master $ kubectl run httpd --image=httpd:alpinepod/httpd created
+master $ kubectl expose pod httpd --name=httpd --type=ClusterIP --target-port=80
+error: couldn't find port via --port flag or introspection
+See 'kubectl expose -h' for help and examples
+master $ kubectl expose pod httpd --name=httpd --type=ClusterIP --target-port=80 --port=80
+service/httpd exposed
