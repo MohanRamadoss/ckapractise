@@ -1,0 +1,2001 @@
+Introduction to Kubernetes
+
+Deepak Gunjetti
+Solution Architect @ Andcloud
+deepak@andcloud.io
+@dgunjetti
+
+* Introduction
+
+- Kubernetes is a container orchestrator, that automates the deployment and life-cycle management of containerized applications. 
+
+- It orchestrates compute, storage, networking for workloads.
+
+* Abstracts the underlying infrastructure
+
+- It abstracts the cluster implementation from workloads
+
+.image img/kubernetes01.png
+
+- we can deploy on AWS, GCP, Azure or on-premise, the application remains consistent across the deployments.
+
+* Kubernetes components
+
+- It consists of master node and sets of worker nodes. 
+
+- Control plane runs on master node, applications runs on worker nodes.
+
+* Components..
+
+.image img/components.png
+
+* Components..
+
+- API server is the policy engine that sits in front of etcd
+
+- etcd is a highly consistent distributed database that holds the cluster state. 
+
+- Controller manager is set control loops that reconcile the actual state in cluster to desired state stored in database.
+
+- Scheduler assigns workloads to appropriate worker nodes.
+
+- Kubelet is agent that runs on every node and makes sure that container are running and healthy.
+
+- Container runtime is responsible to run containers, Kubernetes supports docker, rkt, containerd or any OCI compliant implementation.
+
+* Kubernetes Primitives
+
+* POD
+
+* POD
+
+- Basic unit deployment in kubernetes is a Pod.
+
+- Pod is a wrapper over container, it represents an instance of application. 
+
+- It encapsulates container, storage/network, and other options that govern how container is suppose to run.
+
+- Pod can consist of single container or set of tightly coupled containers that share resources. All the containers in the Pod land on same node.
+
+* Networking
+
+-  Each pod has an IP address in a flat shared networking space that has full communication with other physical computers and pods across the network.
+
+- Containers within a pod share an IP address and port space, and can talk to each other via localhost.
+
+- The hostname is set to the pod’s Name for the application containers within the pod.
+
+* Storage
+
+- A Pod can specify a set of shared storage Volumes. 
+
+- All containers in the Pod can access the shared volumes, allowing those containers to share data. 
+
+- Volumes also allow persistent data in a Pod to survive in case one of the containers within needs to be restarted.
+
+* Pod example
+
+- Example of co-located containers can be, one container serving html web pages to outside world and a side-car container populating those html web pages. Both the container share a storage volume. One container writes to volume other container reads from it.
+
+* Working with Pods
+
+- When a Pod gets created (directly by you, or indirectly by a Controller), it is scheduled to run on a Node in your cluster. The Pod remains on that Node until the process is terminated, the pod object is deleted, the Pod is evicted for lack of resources, or the Node fails.
+
+* Pod Templates
+
+.code -edit src/workloads/pod01.yaml 
+
+* Pod Lifecycle
+
+- Pending: The Pod has been accepted by the Kubernetes system, but one or more of the Container images has not been created. This includes time before being scheduled as well as time spent downloading images over the network, which could take a while.
+
+- Running: The Pod has been bound to a node, and all of the Containers have been created.
+
+- Succeeded: All Containers in the Pod have terminated in success, and will not be restarted.
+
+- Failed: All Containers in the Pod have terminated, and at least one Container has terminated in failure.  That is, the Container either exited with non-zero status.
+
+- Unknown: For some reason the state of the Pod could not be obtained, typically due to an error in communicating with the host of the Pod.
+
+* Restart policy
+
+- A PodSpec has a restartPolicy field with possible values Always, OnFailure, and Never. The default value is Always. 
+
+- restartPolicy only refers to restarts of the Containers by the kubelet on the same node.
+
+- Exited Containers that are restarted by the kubelet are restarted with an exponential back-off delay (10s, 20s, 40s …) capped at five minutes
+
+- once bound to a node, a Pod will not rebound to another node. A higher level contruct called controllers are used to reschedule the pods on another node in case of node failures.
+
+* Controllers 
+
+- Use a Job for Pods that are expected to terminate, for example, batch computations. Jobs are appropriate only for Pods with restartPolicy equal to OnFailure or Never.
+
+- Use a ReplicationController, ReplicaSet, or Deployment for Pods that are not expected to terminate, for example, web servers. ReplicationControllers are appropriate only for Pods with a restartPolicy of Always.
+
+- Use a DaemonSet for Pods that need to run one per machine, because they provide a machine-specific system service.
+
+* Init Containers
+
+- init containers are specialized containers that run before app containers in a Pod. Init containers can contain utilities or setup scripts not present in an app image. 
+
+- Init containers always run to completion.
+
+- Each init container must complete successfully before the next one starts.
+
+- If a Pod’s init container fails, Kubernetes repeatedly restarts the Pod until the init container succeeds. 
+
+* Init containers in use
+
+    src/workloads/initcontainer01.yaml
+
+* Pod Presets 
+
+- PodPresets are objects for injecting certain information into pods at creation time. The information can include secrets, volumes, volume mounts, and environment variables.
+
+- Kubernetes provides an admission controller (PodPreset) which, when enabled, applies Pod Presets to incoming pod creation requests. 
+
+* Pod Presets...
+
+- When a pod creation request occurs, the system does the following:
+
+- Retrieve all PodPresets available for use.
+
+- Check if the label selectors of any PodPreset matches the labels on the pod being created.
+
+- Attempt to merge the various resources defined by the PodPreset into the Pod being created.
+
+- On error, throw an event documenting the merge error on the pod, and create the pod without any injected resources from the PodPreset.
+
+* Pod Presets...
+
+- Create the PodPreset
+
+    kubectl apply -f https://k8s.io/examples/podpreset/preset.yaml
+
+    kubectl get podpreset
+
+- Create a pod
+
+    kubectl create -f https://k8s.io/examples/podpreset/pod.yaml
+
+    kubectl get pods
+
+- Pod spec after admission controller:
+
+    kubectl get pod website -o yaml
+
+* Disruptions
+
+* Mitigate involuntary disruptions
+
+- Replicate your application 
+
+- spread applications across racks and across zones.
+
+* Voluntary disruptions 
+
+- software upgrades / auto scaling can cause voluntary disruptions. 
+
+- Kubernetes offers features to help run highly available applications at the same time as frequent voluntary disruptions.
+
+* PodDisruptionBudget (PDB)
+
+- A PDB limits the number of pods of a replicated application that are down simultaneously from voluntary disruptions.
+
+- When a cluster administrator wants to drain a node they use the kubectl drain
+
+- kubectl drain tries to evict all the pods on the machine. It uses Eviction API instead of directly deleting pods.
+
+- The eviction request may be temporarily rejected, if the number of pods falls below certain percentage of total.
+
+- PDBs cannot prevent involuntary disruptions from occurring, but they do count against the budget.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+* Replicaset Controller
+
+- Relicaset controller takes a count, and template to create Pods.
+
+- It makes sure specified number of Pods are always running on the cluster. If any node goes down, Pods are rescheduled on different node.
+
+- Replicaset is managed by higher level abstraction called Deployment.
+
+* Deployment
+
+- Deployment manages the rolling out of application. When a new version of application is to be rolled out, it creates a new Replicaset. It rolls down the Pods created by old Replicaset and rolls up the Pods on new Replicaset.
+
+* StatefulSets
+
+- StatefulSets attaches persistent storage with the instance of application. 
+
+- It provides guarantee of ordering and provides unique ID to Pod.
+
+- It is used by applications that requires stable network ID, persistent storage, graceful deployment and termination.
+
+- Storage is either dynamically provisioned or pre-provisioned by Admin. 
+
+- Network ID for the Pods is provided by Headless service.
+
+* DaemonSet
+
+- DaemonSet ensures that a Pod runs on every node in cluster. 
+
+- Examples of these kinds of Pods are log collectors and node monitoring agents.
+
+* Jobs
+
+- Jobs are about tasks that need to run to completion. 
+
+- Job need to run till it is successful.
+
+* Cronjob
+
+- Cronjob creates Jobs based on schedule.
+
+    NAME                               READY     STATUS    RESTARTS   AGE
+    curl-deployment-1515033274-1410r   1/1       Running   0          1m
+    $ kubectl exec curl-deployment-1515033274-1410r -- 
+    curl https://my-nginx --cacert /etc/nginx/ssl/nginx.crt
+    ...
+    <title>Welcome to nginx!</title>
+    
+    
+    
+    
+    
+    
+    * Service
+
+- Pods are ephemeral, when the Pods are rescheduled, they get new IP address. 
+
+- Services groups the Pods providing the same functionality and provides them a virtual IP address and ports. 
+
+- Workloads can access these Pods using virtual IP address and port, kube-proxy will load balance the traffic to one of the backing pod.
+
+- The set of pods targeted by service is determined by Label selector.
+
+* Services Example
+
+- There may be multiple pods that all act as the frontend, and there may be single backend database pod.
+
+- We can create a service for frontend pods and configure that to be accessed from outside the cluster.
+
+- Connection to service will load balance across all the backing pods.
+
+- We can create a service for backend service. This gives stable address for the backend pod.
+
+- This enables the frontend pod to easily find the backend service by its name.
+
+* Creating service 
+
+.code -edit src/services/svc01.yaml  /START OMIT/,/END OMIT/
+
+- service my-service accepts connection on port 80 and route to port 8080 on one of pods matching app=my-app label selector.
+
+* Creating service..
+
+    # kubectl create -f src/services/svc01.yaml
+
+    # kubectl  get svc
+    NAME         TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)   AGE
+    kubernetes   ClusterIP   10.96.0.1      <none>        443/TCP   16d
+    my-service   ClusterIP   10.98.59.167   <none>        80/TCP    5m17s
+
+- Service is assigned an Cluster IP address, which is accessible only within cluster.
+
+- The Service’s selector will be evaluated continuously and the results will be POSTed to an Endpoints object also named “my-service”.
+
+- Kubernetes Services support TCP, UDP and SCTP for protocols. The default is TCP.
+
+* Access the service
+
+- You can send requests to your service from within the cluster
+
+    # kubectl exec my-app-7nog1 -- curl -s http://10.111.249.153
+
+- The kubectl exec command allows you to remotely run arbitrary commands inside an existing container of a pod.
+
+* Endpoints
+
+- An Endpoints resource is a list of IP addresses and ports exposing a service. 
+
+    # kubectl get ep my-service
+        NAME         ENDPOINTS         AGE
+        my-service   172.17.0.5:8080   95m
+
+- The  selector is used to build a list of IPs and ports, which is then stored in the Endpoints resource.
+
+- When a client connects to a service, the kube-proxy selects one of those IP and port pairs and redirects the incoming connection to the server listening at that location.
+
+* Services without selectors
+
+- Services generally abstract access to Kubernetes Pods, but they can also abstract other kinds of backends. For example:
+
+- You want to have an external database cluster in production, but in test you use your own databases.
+
+- You are migrating your workload to Kubernetes and some of your backends run outside of Kubernetes.
+
+- In any of these scenarios you can define a service without a selector.
+
+* Services without selectors...
+
+.code -edit src/services/svc02.yaml  /START OMIT/,/END OMIT/
+
+
+* Proxy mode : IPTables
+
+- kube-proxy watches the Kubernetes master for the addition and removal of Service and Endpoints objects. 
+
+- kube-proxy installs iptables rules which capture traffic to the Service’s clusterIP and Port 
+
+- Redirects that traffic to one of the Service’s backend sets.
+
+- For each Endpoints object, it installs iptables rules which select a backend Pod. By default, the choice of backend is random.
+
+* Proxy mode : IPVS
+
+- kube-proxy watches Kubernetes Services and Endpoints, calls netlink interface to create ipvs rules accordingly and syncs ipvs rules with Kubernetes Services and Endpoints periodically.
+
+- When Service is accessed, traffic will be redirected to one of the backend Pods.
+
+- IPVS is based on netfilter hook function, uses hash table as the underlying data structure and works in the kernel space.
+
+- ipvs provides more options for load balancing algorithm, such as:
+	rr: round-robin
+	lc: least connection
+	dh: destination hashing
+	sh: source hashing
+	sed: shortest expected delay
+	nq: never queue
+
+* Multi-Port Services
+
+- When creating a service with multiple ports, you must specify a name for each port.
+
+.code -edit src/services/svc03.yaml 
+
+* Discovering services
+
+- Kubernetes supports 2 primary modes of finding a Service 
+    environment variables 
+    DNS.
+
+- When a Pod is run on a Node, the kubelet adds a set of environment variables for each active Service
+
+    {SVCNAME}_SERVICE_HOST and {SVCNAME}_SERVICE_PORT variables
+
+    Ex:
+    REDIS_MASTER_SERVICE_HOST=10.0.0.11
+    REDIS_MASTER_SERVICE_PORT=6379
+
+* Discovering services - dns
+
+- The kube-system namespace includes pod core-dns.
+
+- The Pod runs a DNS server, which all other pods running in the cluster are automatically configured to use
+
+- The DNS server watches the Kubernetes API for new Services and creates a set of DNS records for each. 
+
+* Headless services
+
+- Sometimes you don’t need or want load-balancing and a single service IP. In this case, you can create “headless” services by specifying "None" for the cluster IP (.spec.clusterIP).
+
+* Headless services - with selector
+
+- The endpoints controller creates Endpoints records in the API, and modifies the DNS configuration to return A records (addresses) that point directly to the Pods backing the Service.
+
+* Headless services - without selector
+
+- The endpoints controller is not created.
+
+- DNS system looks for and configures either:
+
+- CNAME records for ExternalName-type services.
+
+- A records for any Endpoints that share a name with the service.
+
+* Service Types
+
+- ClusterIP
+
+- NodePort
+
+- LoadBalancer
+
+- ExternalName
+
+* Service Types - ClusterIP
+
+- Exposes the service on a cluster-internal IP
+
+- service only reachable from within the cluster. 
+
+- This is the default ServiceType.
+
+* Service Types - NodePort
+
+- Each cluster node opens a port on the node itself and redirects traffic received on that port to the underlying service. 
+
+- Service is accessible internally via cluster-ip 
+
+- Service is visible externally through a dedicated port on all nodes.
+
+* Type NodePort
+
+- type field to NodePort
+
+- Kubernetes master will allocate a port from a range specified by --service-node-port-range flag (default: 30000-32767), and each Node will proxy that port (the same port number on every Node) into your Service. 
+
+- That port will be reported in your Service’s .spec.ports[*].nodePort field.
+
+- Service will be visible as both 
+    
+    <NodeIP>:spec.ports[*].nodePort 
+    .spec.clusterIP:spec.ports[*].port
+
+* Type NodePort
+
+.code -edit src/services/svc04.yaml
+
+* Type NodePort
+
+    $ kubectl get svc my-svc-nodeport
+    NAME              TYPE       CLUSTER-IP       EXTERNAL-IP   PORT(S)        AGE
+    my-svc-nodeport   NodePort   10.102.193.100   <none>        80:30123/TCP   19s
+
+- EXTERNAL-IP <nodes> indicates the service is accessible through the IP address of any cluster node. 
+
+- PORT(S) column shows both the internal port of the cluster IP (80) and the node port (30123). 
+
+- A connection received on port 30123 on a node might be forwarded either to the pod running on the same node or to one of the pods running on another node.
+
+* Service Types - LoadBalancer
+
+- service is accessible through a dedicated load balancer, provisioned from the cloud infrastructure 
+
+- Clients connect to the service through the load balancer’s IP.
+
+- The load balancer redirects traffic to the node port across all the nodes. 
+
+
+* Type loadbalancer
+
+- On cloud providers which support external load balancers, setting the type field to LoadBalancer will provision a load balancer for your Service. 
+
+- The actual creation of the load balancer happens asynchronously, and information about the provisioned balancer will be published in the Service’s .status.loadBalancer field. 
+
+* Type loadbalancer
+
+.code -edit src/services/svc05.yaml
+
+* Type loadbalancer
+
+    $ kubectl get svc my-loadbalancer
+    NAME                 CLUSTER-IP       EXTERNAL-IP      PORT(S)         AGE
+    my-loadbalancer   10.111.241.153   130.211.53.173 
+
+    $ curl http://130.211.53.173
+    You've hit my-app-xueq1
+
+- External clients connect to port 80 of the load balancer and get routed to the implicitly assigned node port on one of the nodes. From there, the connection is forwarded to one of the pod
+
+* Service Types - ExternalName
+
+- Maps the service to the contents of the externalName field (e.g. foo.bar.example.com), by returning a CNAME record with its value.
+
+- If you want to access a public API, you can define a service that points to it.
+
+.code -edit src/services/svc06.yaml 
+
+- After the service is created, pods can connect to the external service through the external-service.default.svc.cluster.local domain name
+
+
+* Liveness & Readiness Probes 
+
+* Liveness Probes
+
+- The kubelet uses liveness probes to know when to restart a Container. 
+
+- For example, liveness probes could catch a deadlock, where an application is running, but unable to make progress. Restarting a Container in such a state can help to make the application more available despite bugs.
+
+* Readiness Probes
+
+- The kubelet uses readiness probes to know when a Container is ready to start accepting traffic. 
+
+- A Pod is considered ready when all of its Containers are ready. 
+
+- One use of this signal is to control which Pods are used as backends for Services. 
+
+- When a Pod is not ready, it is removed from Service load balancers.
+
+* Liveness Probes
+
+.code -edit src/probes/01-liveness.yaml
+
+* Liveness Probes
+
+- The periodSeconds field specifies that the kubelet should perform a liveness probe every 5 seconds.
+
+- The initialDelaySeconds field tells the kubelet that it should wait 5 second before performing the first probe.
+
+- To perform a probe, the kubelet executes the command cat /tmp/healthy in the Container.
+
+- If the command succeeds, it returns 0, and the kubelet considers the Container to be alive and healthy. If the command returns a non-zero value, the kubelet kills the Container and restarts it.
+
+* Liveness Probes
+
+    kubectl create -f https://k8s.io/examples/pods/probe/exec-liveness.yaml
+
+- After 35 seconds, view the Pod events:
+
+    kubectl describe pod liveness-exec
+    Unhealthy   Liveness probe failed: cat: can't open '/tmp/healthy': No such file or directory
+
+    kubectl get pod liveness-exec
+    NAME            READY     STATUS    RESTARTS   AGE
+    liveness-exec   1/1       Running   1          1m
+
+* Define a liveness HTTP request
+
+.code -edit src/probes/02-http.yaml  /START OMIT/,/END OMIT/
+
+- The kubelet sends an HTTP GET request to the server that is running in the Container and listening on port 8080. If the handler for the server’s /healthz path returns a success code, the kubelet considers the Container to be alive and healthy. If the handler returns a failure code, the kubelet kills the Container and restarts it.
+
+* Define a TCP liveness probe
+
+.code -edit src/probes/03-tcp.yaml  /START OMIT/,/END OMIT/
+
+- kubelet will attempt to open a socket to container on the specified port. If it can establish a connection, the container is considered healthy, if it can’t it is considered a failure.
+
+* Define readiness probes
+
+- Sometimes, applications are temporarily unable to serve traffic. For example, an application might need to load large data or configuration files during startup. In such cases, you don’t want to kill the application, but you don’t want to send it requests either.
+
+- A pod with containers reporting that they are not ready does not receive traffic through Kubernetes Services.
+
+- Readiness and liveness probes can be used in parallel for the same container. Using both can ensure that traffic does not reach a container that is not ready for it, and that containers are restarted when they fail.
+
+
+* Kubernetes networking
+
+- Every pod its own cluster-private-IP address
+
+- Containers within a Pod can all reach each other’s ports on localhost
+
+- All pods in a cluster can see each other without NAT. 
+
+* Kubernetes networking
+
+    $ kubectl get pods -l run=my-nginx -o wide
+    NAME                        READY     STATUS    RESTARTS   IP            
+    my-nginx-3800858182-jr4a2   1/1       Running   0          10.244.3.4    
+    my-nginx-3800858182-kna2y   1/1       Running   0          10.244.2.5    
+
+- You should be able to ssh into any node in your cluster and curl both IPs. 
+
+- Note that the containers are not using port 80 on the node
+
+- This means you can run multiple nginx pods on the same node all using the same containerPort and access them from any other pod or node in your cluster using IP.
+
+* Securing the Service
+
+    #create a public private key pair
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+    -keyout /tmp/nginx.key -out /tmp/nginx.crt \
+    -subj "/CN=my-nginx/O=my-nginx"
+
+    #convert the keys to base64 encoding
+    cat /tmp/nginx.crt | base64
+    cat /tmp/nginx.key | base64
+
+* Securing the Service...
+
+    src/services/secure/secret.yaml
+
+    src/services/secure/nginx-app.yaml
+
+- The nginx server serves HTTP traffic on port 80 and HTTPS traffic on 443, and nginx Service exposes both ports.
+
+- Each container has access to the keys through a volume mounted at /etc/nginx/ssl. This is setup before the nginx server is started.
+
+* Securing the Service...
+
+    $ kubectl get pods -o yaml | grep -i podip
+        podIP: 10.244.3.5
+    node $ curl -k https://10.244.3.5
+    ...
+    <h1>Welcome to nginx!</h1>
+
+- -k parameter is to tell curl to ignore the CName mismatch. this is because we don’t know anything about the pods running nginx at certificate generation time.
+
+* Securing the Service...
+
+    src/services/secure/curlpod.yaml
+
+    $ kubectl create -f ./curlpod.yaml
+    $ kubectl get pods -l app=curlpod
+    
+    
+    
+    
+    
+    
+    * Ingress
+
+* Ingress
+
+- Ingress exposes HTTP and HTTPS routes from outside the cluster to services within the cluster. 
+
+- Traffic routing is controlled by rules defined on the ingress controller.
+
+- Ingress provides load balancing, SSL termination and name-based virtual hosting.
+
+- Ingress controller is responsible for fulfulling the ingress, usually with load balancer.
+
+- Ingress resource contains rules for directing HTTP traffic.
+
+
+* Ingress..
+
+.code -edit src/ingress/01-ingress.yaml  /START OMIT/,/END OMIT/
+
+* Ingress rules
+
+- host: if no host is specified, rules apply to all incoming request. If host is provided, the rules apply to that host.
+
+- list of paths: each of which are associated with backend defined by serviceName and servicePort.
+
+* Default Backend
+
+- An Ingress with no rules sends all traffic to a single default backend. 
+
+- The default backend is typically a configuration option of the Ingress controller
+
+- If none of the hosts or paths match the HTTP request in the Ingress objects, the traffic is routed to your default backend.
+
+* Types of Ingress, Single service ingress
+
+- exposing single service
+
+- specifying default backend with no rules.
+
+.code src/ingress/02-single-service.yaml 
+
+*  Single service ingress
+
+- kubectl apply -f ingress.yaml
+
+- kubectl get ingress test-ingress
+
+- shows IP allocated by the Ingress controller to satisfy this Ingress.
+
+* Simple fan out
+
+- Routes traffic from a single IP address to more than one service, based on HTTP URI.
+
+- Ingress allows you to keep the number of load balancer to minimum.
+
+.code src/ingress/03-fan-out.yaml  /START OMIT/,/END OMIT/
+
+- The Ingress controller provisions an load balancer that satisfies the Ingress, as long as the services (s1, s2) exist. 
+
+* Name based virtual hosting
+
+- Name-based virtual hosts support routing HTTP traffic to multiple host names at the same IP address.
+
+  foo.bar.com --|                 |-> foo.bar.com s1:80
+                | 178.91.123.132  |
+  bar.foo.com --|                 |-> bar.foo.com s2:80
+
+* Name based virtual hosting..
+
+.code src/ingress/04-virtualhosting.yaml  /START OMIT/,/END OMIT/
+
+
+- If you create an Ingress resource without any hosts defined in the rules, then any web traffic to the IP address of your Ingress controller can be matched without a name based virtual host being required.
+
+* TLS
+
+- You can secure an Ingress by specifying a Secret that contains a TLS private key and certificate. 
+
+- Ingress controller to secure the channel from the client to the load balancer using TLS. 
+
+.code src/ingress/05-tls.yaml  /START OMIT/,/END OMIT/
+
+* TLS
+
+.code src/ingress/05-tls.yaml  /START1 OMIT/,/END1 OMIT/
+
+- certificate is created with CN for sslexample.foo.com.
+
+* Ingress Controllers
+
+- In order for the Ingress resource to work, the cluster must have an ingress controller running.
+
+- Kubernetes as a project currently supports and maintains GCE and nginx controllers.
+
+- Additional controllers, HAProxy, Contour
+
+
+* Using multiple Ingress controllers
+
+- You may deploy any number of ingress controllers within a cluster. 
+
+- When you create an ingress, you should annotate each ingress with the appropriate ingress.class to indicate which ingress controller should be used if more than one exists within your cluster.
+
+* Network policy
+
+* Network policy
+
+- NetworkPolicy resources use labels to select pods and define rules which specify what traffic is allowed to the selected pods.
+
+- Network policies are implemented by the network plugin, so you must be using a networking solution which supports NetworkPolicy.
+
+- By default, pods are non-isolated; they accept traffic from any source.
+
+- Pods become isolated by having a NetworkPolicy that selects them. 
+
+* Example
+
+.code src/networkpolicy/02-policy.yaml /START OMIT/,/END OMIT/
+
+* Example...
+
+.code src/networkpolicy/02-policy.yaml /START1 OMIT/,/END1 OMIT/
+
+* Example...
+
+.code src/networkpolicy/02-policy.yaml /START2 OMIT/,/END2 OMIT/
+
+* podSelector
+
+- podSelector selects the grouping of pods to which the policy applies.
+
+- The example policy selects pods with the label “role=db”. 
+
+- An empty podSelector selects all pods in the namespace.
+
+* policyTypes
+
+- policyTypes field indicates whether or not the given policy applies to ingress traffic to selected pod, egress traffic from selected pods, or both.
+
+- If no policyTypes are specified on a NetworkPolicy then by default Ingress
+
+* ingress
+
+- include a list of whitelist ingress rules. 
+
+- Each rule allows traffic which matches both the from and ports sections. 
+
+* from
+
+- The example policy contains a single rule, which matches traffic on a single port, from one of three sources, ipBlock, namespaceSelector, podSelector.
+
+- podSelector: This selects particular Pods in the same namespace as the NetworkPolicy
+
+- namespaceSelector: Selects particular namespaces for which all Pods should be allowed 
+
+- ipBlock: selects particular IP CIDR ranges to allow 
+
+* from..
+
+- namespaceSelector and podSelector: selects particular Pods within particular namespaces.
+
+  ...
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          user: alice
+      podSelector:
+        matchLabels:
+          role: client
+  ...
+
+- allowing connections from Pods with the label role=client in namespaces with the label user=alice. 
+
+* from..
+
+  ...
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          user: alice
+    - podSelector:
+        matchLabels:
+          role: client
+  ...
+
+- allows connections from Pods in the local Namespace with the label role=client, or from any Pod in any namespace with the label user=alice.
+
+- use "kubectl describe" to see how Kubernetes has interpreted the policy.
+
+* Default deny all ingress traffic
+
+.code src/networkpolicy/03-default.yaml 
+
+* Default allow all ingress traffic
+
+.code src/networkpolicy/04-default.yaml 
+
+- replace ingress with egress for default egress policy.
+
+* Limit access 
+
+- limit access to the nginx service so that only pods with the label access: true can query it. 
+
+.code src/networkpolicy/01-limit-access.yaml 
+
+$ kubectl run busybox --rm -ti --labels="access=true" --image=busybox /bin/sh
+/ # wget --spider --timeout=1 nginx
+Connecting to nginx (10.100.0.16:80)
+
+
+
+
+
+
+
+* Authentication and Authorization 
+
+* Auth and Authz
+
+- As Kubernetes is entirely API driven, controlling and limiting who can access the cluster and what actions they are allowed to perform is the first line of defense.
+
+- Kubernetes expects that all API communication in the cluster is encrypted by default with TLS, and the majority of installation methods will allow the necessary certificates to be created and distributed to the cluster components.
+
+- Integration with an existing OIDC or LDAP server can be done to allow users to be subdivided into groups.
+
+* Auth and Authz...
+
+- All API clients must be authenticated, even those that are part of the infrastructure like nodes, proxies, the scheduler, and volume plugins.
+
+- These clients are typically service accounts or use x509 client certificates.
+
+- Once authenticated, every API call is also expected to pass an authorization check. Kubernetes ships an integrated Role-Based Access Control (RBAC) component that matches an incoming user or group to a set of permissions bundled into roles.
+
+- These permissions combine verbs (get, create, delete) with resources (pods, services, nodes) and can be namespace or cluster scoped.
+
+* Auth and Authz...
+
+- When you access the cluster using kubectl, you are authenticated by the apiserver as a particular User Account.
+
+- Processes in containers inside pods can also contact the apiserver. When they do, they are authenticated as a particular Service Account.
+
+* Access to the Kubernetes API
+
+- In a typical Kubernetes cluster, the API serves on port 443. The API server presents a certificate. 
+
+- This certificate is often self-signed, so $USER/.kube/config on the user’s machine typically contains the root certificate for the API server’s certificate.
+
+- Once TLS is established, the HTTP request moves to the Authentication step.
+
+* Access to the Kubernetes API...
+
+- cluster admin configures the API server to run one or more Authenticator Modules.
+
+- Authentication modules include Client Certificates, Password, and Plain Tokens, Bootstrap Tokens, and JWT Tokens (used for service accounts).
+
+- Multiple authentication modules can be specified, in which case each one is tried in sequence, until one of them succeeds.
+
+- While Kubernetes uses usernames for access control decisions and in request logging, it does not have a user object nor does it store usernames or other information about users in its object store.
+
+
+* API Server Ports and IP
+
+- By default the Kubernetes API server serves HTTP on 2 ports: Localhost Port, Secure Port
+
+Localhost Port:
+
+- Meant of for other components of the master node scheduler, controller-manager to talk to the API
+
+- Default IP is localhost, Default is port 8080
+
+Secure Port:
+
+- uses TLS. Set cert with --tls-cert-file and key with --tls-private-key-file flag.
+
+- Default IP is first non-localhost network interface. Default is port 6443 or 443
+ 
+
+* Service account 
+
+- When you create a pod, if you do not specify a service account, it is automatically assigned the default service account in the same namespace. 
+
+- You can access the API from inside a pod using automatically mounted service account credentials
+
+- The API permissions of the service account depend on the authorization plugin and policy in use.
+
+* Service account.. 
+
+- Every namespace has a default service account resource called default.
+
+    kubectl get serviceAccounts
+    NAME      SECRETS    AGE
+    default   1          1d
+
+* Create service account
+
+    kubectl apply -f - <<EOF
+    apiVersion: v1
+    kind: ServiceAccount
+    metadata:
+    name: build-robot
+    EOF
+
+- To use a non-default service account, set the spec.serviceAccountName field of a pod to the name of the service account you wish to use.
+
+- The service account has to exist at the time the pod is created, or it will be rejected.
+
+- You cannot update the service account of an already created pod.
+
+* RBAC Authorization
+
+- Role-based access control (RBAC) is a method of regulating access based on the roles.
+
+Role and ClusterRole
+
+- a role contains rules that represent a set of permissions.
+
+- Permissions are purely additive (there are no “deny” rules).
+
+- A role can be defined within a namespace with a Role, or cluster-wide with a ClusterRole.
+
+* Role
+
+.code src/auth/01-role.yaml
+
+- Role in the “default” namespace that can be used to grant read access to pods
+
+* Cluster role 
+
+.code src/auth/02-cluster-role.yaml 
+
+- clusterRole can be used to grant read access to secrets. 
+
+* RoleBinding
+
+- A role binding grants the permissions defined in a role to a user or set of users.
+
+- Role binding holds a list of subjects (users, groups, or service accounts), and a reference to the role being granted. 
+
+* RoleBinding
+
+.code src/auth/03-role-binding.yaml 
+
+- A RoleBinding may also reference a ClusterRole to grant the permissions to namespaced resources defined in the ClusterRole within the RoleBinding’s namespace. 
+
+- This allows administrators to define a set of common roles for the entire cluster, then reuse them within multiple namespaces.
+
+* ClusterRoleBinding
+
+- ClusterRoleBinding may be used to grant permission at the cluster level and in all namespaces.
+
+.code src/auth/04-cluster-role-binding.yaml 
+
+* Referring to Resources
+
+.code src/auth/05-resources.yaml 
+
+- pods is the namespaced resource, and log is a subresource of pods. 
+
+- use a slash to delimit the resource and subresource.
+
+* Referring to Resources instance
+
+- Resources can also be referred to by name.
+
+- verbs can be restricted to individual instances of a resource. 
+
+.code src/auth/06-resource-instance.yaml
+
+* Aggregated ClusterRoles
+
+- ClusterRoles can be created by combining other ClusterRoles using an aggregationRule.
+
+.code src/auth/07-aggregate.yaml
+
+* Aggregated ClusterRoles
+
+.code src/auth/07-aggregate01.yaml
+
+* Aggregated ClusterRoles..
+
+.code src/auth/07-aggregate02.yaml
+
+- ClusterRoles let the “admin” and “edit” default roles manage the custom resource “CronTabs”
+
+* Aggregated ClusterRoles..
+
+.code src/auth/07-aggregate03.yaml
+
+- ClusterRoles let "view" role perform read-only actions on the resource.
+
+* Role Examples
+
+- Allow reading the resource “pods” in the core API group:
+
+    rules:
+    - apiGroups: [""]
+      resources: ["pods"]
+      verbs: ["get", "list", "watch"]
+
+- Allow reading/writing “deployments” in both the “extensions” and “apps” API groups:
+
+    rules:
+    - apiGroups: ["extensions", "apps"]
+      resources: ["deployments"]
+      verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+* Role Examples...
+
+- Allow reading “pods” and reading/writing “jobs”:
+
+    rules:
+    - apiGroups: [""]
+      resources: ["pods"]
+      verbs: ["get", "list", "watch"]
+    - apiGroups: ["batch", "extensions"]
+      resources: ["jobs"]
+      verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+- Allow reading a ConfigMap named “my-config” (must be bound with a RoleBinding to limit to a single ConfigMap in a single namespace): 
+
+    rules:
+    - apiGroups: [""]
+      resources: ["configmaps"]
+      resourceNames: ["my-config"]
+      verbs: ["get"]
+
+* Role Examples...
+
+- Allow reading the resource “nodes” in the core group (because a Node is cluster-scoped, this must be in a ClusterRole bound with a ClusterRoleBinding to be effective):
+
+    rules:
+    - apiGroups: [""]
+      resources: ["nodes"]
+      verbs: ["get", "list", "watch"]
+
+- Allow “GET” and “POST” requests to the non-resource endpoint “/healthz” and all subpaths (must be in a ClusterRole bound with a ClusterRoleBinding to be effective):
+
+    rules:
+    - nonResourceURLs: ["/healthz", "/healthz/*"] # '*' in a nonResourceURL is a suffix glob match
+    verbs: ["get", "post"]
+
+* Subjects
+
+- A RoleBinding or ClusterRoleBinding binds a role to subjects. 
+
+- Subjects can be groups, users or service accounts.
+
+- Users are represented by strings. “bob@example.com" 
+
+- prefix "system": is reserved for Kubernetes system use
+
+- Groups, are represented as strings.
+
+- Service Accounts have usernames with the "system:serviceaccount:" prefix and belong to groups with the "system:serviceaccounts:" prefix.
+
+* Subjects examples... 
+
+    subjects:
+    - kind: User
+      name: "alice@example.com"
+      apiGroup: rbac.authorization.k8s.io
+
+    subjects:
+    - kind: Group
+      name: "frontend-admins"
+      apiGroup: rbac.authorization.k8s.io
+
+    subjects:
+    - kind: ServiceAccount
+      name: default
+      namespace: kube-system
+
+* Subjects examples... 
+
+- For all service accounts in the “qa” namespace:
+
+    subjects:
+    - kind: Group
+      name: system:serviceaccounts:qa
+      apiGroup: rbac.authorization.k8s.io
+
+- For all service accounts everywhere:
+
+    subjects:
+    - kind: Group
+      name: system:serviceaccounts
+      apiGroup: rbac.authorization.k8s.io
+
+* Subjects examples... 
+
+- For all authenticated users
+
+    subjects:
+    - kind: Group
+      name: system:authenticated
+      apiGroup: rbac.authorization.k8s.io
+
+- For all unauthenticated users
+
+    subjects:
+    - kind: Group
+      name: system:unauthenticated
+      apiGroup: rbac.authorization.k8s.io
+
+- For all users
+
+    subjects:
+    - kind: Group
+      name: system:authenticated
+      apiGroup: rbac.authorization.k8s.io
+    - kind: Group
+      name: system:unauthenticated
+      apiGroup: rbac.authorization.k8s.io
+
+
+* Default ClusterRole and ClusterRoleBinding
+
+- API servers create a set of default ClusterRole and ClusterRoleBinding objects. Many of these are system: prefixed, which indicates that the resource is “owned” by the infrastructure. 
+
+- All of the default cluster roles and rolebindings are labeled with kubernetes.io/bootstrapping=rbac-defaults
+
+- Default role bindings authorize unauthenticated and authenticated users to read API information that is deemed safe to be publicly accessible
+
+- To disable anonymous unauthenticated access add --anonymous-auth=false to the API server configuration.
+
+- To view the configuration of these roles via kubectl run:
+
+    kubectl get clusterroles system:discovery -o yaml
+
+* Role grantor
+
+.code src/auth/08-role-grantor.yaml  /START1 OMIT/,/END1 OMIT/
+ 
+* Role grantor...
+
+.code -edit src/probes/08-role-grantor.yaml  /START2 OMIT/,/END2 OMIT/
+
+* Role grantor using commands
+
+- Grant the admin ClusterRole to a user named “bob” in the namespace “acme”
+
+    kubectl create rolebinding bob-admin-binding --clusterrole=admin 
+        --user=bob --namespace=acme
+
+- Grant the view ClusterRole to a service account named “myapp” in the namespace “acme”:
+
+    kubectl create rolebinding myapp-view-binding --clusterrole=view 
+        --serviceaccount=acme:myapp --namespace=acme
+
+* Role grantor using commands...
+
+- Grant the cluster-admin ClusterRole to a user named “root” across the entire cluster:
+
+    kubectl create clusterrolebinding root-cluster-admin-binding 
+        --clusterrole=cluster-admin --user=root
+
+- Grant the system:node ClusterRole to a user named “kubelet” across the entire cluster:
+
+    kubectl create clusterrolebinding kubelet-node-binding 
+        --clusterrole=system:node --user=kubelet
+
+- Grant the view ClusterRole to a service account named “myapp” in the namespace “acme” across the entire cluster:
+
+    kubectl create clusterrolebinding myapp-view-binding 
+        --clusterrole=view --serviceaccount=acme:myapp
+
+* Service Account Permissions
+
+- Default RBAC policies grant scoped permissions to control-plane components, nodes, and controllers, but grant no permissions to service accounts outside the kube-system namespace (beyond discovery permissions given to all authenticated users).
+
+- You need to grant particular roles to particular service accounts as needed. 
+
+- This requires the application to specify a serviceAccountName in its pod spec, and for the service account to be created (via the API, application manifest, kubectl create serviceaccount, etc.).
+
+- Grant read-only permission within “my-namespace” to the “my-sa” service account:
+
+    kubectl create rolebinding my-sa-view \
+        --clusterrole=view \
+        --serviceaccount=my-namespace:my-sa \
+        --namespace=my-namespace
+
+* Service Account Permissions...
+
+- Grant read-only permission within “my-namespace” to the “default” service account:
+
+    kubectl create rolebinding default-view \
+        --clusterrole=view \
+        --serviceaccount=my-namespace:default \
+        --namespace=my-namespace
+
+- Many add-ons currently run as the “default” service account in the kube-system namespace. To allow those add-ons to run with super-user access, grant cluster-admin permissions to the “default” service account in the kube-system namespace.
+
+    kubectl create clusterrolebinding add-on-cluster-admin \
+        --clusterrole=cluster-admin \
+        --serviceaccount=kube-system:default
+
+* Service Account Permissions...
+
+- Grant read-only permission within “my-namespace” to all service accounts in that namespace:
+
+    kubectl create rolebinding serviceaccounts-view \
+        --clusterrole=view \
+        --group=system:serviceaccounts:my-namespace \
+        --namespace=my-namespace
+
+* Admission Controller 
+
+- An admission controller intercepts requests to the Kubernetes API server prior to persistence of the object, but after the request is authenticated and authorized.
+
+- Admission controllers may be “validating”, “mutating”, or both.
+
+- Mutating controllers may modify the objects they admit.
+
+- If any of the controllers reject the request, the entire request is rejected immediately and an error is returned to the end-user.
+
+* Admission Controller 
+
+- The Kubernetes API server flag enable-admission-plugins takes a comma-delimited list of admission control plugins 
+
+    kube-apiserver --enable-admission-plugins=NamespaceLifecycle,LimitRanger ...
+
+    kube-apiserver -h | grep enable-admission-plugins
+    NamespaceLifecycle,LimitRanger,ServiceAccount,PersistentVolumeLabel,
+    DefaultStorageClass,DefaultTolerationSeconds,MutatingAdmissionWebhook,
+    ValidatingAdmissionWebhook,ResourceQuota,Priority
+
+* Admission Controller plugins
+
+AlwaysPullImages
+
+- Every new Pod to force the image pull policy to Always. 
+
+- This is useful in a multitenant cluster so that users can be assured that their private images can only be used by those who have the credentials to pull them.
+
+DefaultStorageClass
+
+- This admission controller observes creation of PersistentVolumeClaim objects that do not request any specific storage class and automatically adds a default storage class to them.
+
+    
+    
+    
+    
+    
+    
+    * Pod Security Policies
+
+- Pod Security Policies enable fine-grained authorization of pod creation and updates.
+
+- A Pod Security Policy is a cluster-level resource that controls security sensitive aspects of the pod specification. The PodSecurityPolicy objects define a set of conditions that a pod must run with, in order to be accepted into the system, as well as defaults for the related fields. 
+
+- Control Aspects
+
+    Running of privileged containers
+    Usage of host namespaces
+    Usage of host networking and ports
+    Usage of volume types
+    Linux capabilities
+
+* Pod Security Policies
+
+- Pod security policy control is implemented as an optional (but recommended) admission controller, but doing so without authorizing any policies will prevent any pods from being created in the cluster.
+
+- When a PodSecurityPolicy resource is created, it does nothing. In order to use it, the requesting user or target pod’s service account must be authorized to use the policy, by allowing the use verb on the policy.
+
+- Most Kubernetes pods are not created directly by users. Instead, they are typically created indirectly as part of a Deployment, ReplicaSet, or other templated controller via the controller manager. Granting the controller access to the policy would grant access for all pods created by that the controller, so the preferred method for authorizing policies is to grant access to the pod’s service account
+
+* Pod Security Policies
+
+    kind: ClusterRole
+    apiVersion: rbac.authorization.k8s.io/v1
+    metadata:
+      name: <role name>
+    rules:
+    - apiGroups: ['policy']
+      resources: ['podsecuritypolicies']
+      verbs:     ['use']
+      resourceNames:
+      - <list of policies to authorize>
+
+- Then the (Cluster)Role is bound to the authorized user(s):
+
+* Pod Security Policies
+
+    kind: ClusterRoleBinding
+    apiVersion: rbac.authorization.k8s.io/v1
+    metadata:
+      name: <binding name>
+
+    roleRef:
+      kind: ClusterRole
+      name: <role name>
+      apiGroup: rbac.authorization.k8s.io
+
+    subjects:
+      # Authorize specific service accounts:
+    - kind: ServiceAccount
+      name: <authorized service account name>
+      namespace: <authorized pod namespace>
+
+      # Authorize specific users (not recommended):
+    - kind: User
+      apiGroup: rbac.authorization.k8s.io
+      name: <authorized user name>
+
+* Pod Security Policies
+
+- If a RoleBinding (not a ClusterRoleBinding) is used, it will only grant usage for pods being run in the same namespace as the binding. This can be paired with system groups to grant access to all pods run in the namespace:
+
+    # Authorize all service accounts in a namespace:
+    - kind: Group
+      apiGroup: rbac.authorization.k8s.io
+      name: system:serviceaccounts
+    
+    # Or equivalently, all authenticated users in a namespace:
+    - kind: Group
+      apiGroup: rbac.authorization.k8s.io
+      name: system:authenticated
+
+* Policy Order
+
+- In addition to restricting pod creation and update, pod security policies can also be used to provide default values for many of the fields that it controls. 
+
+- When multiple policies are available, the pod security policy controller selects policies in the following order:
+
+- If any policies successfully validate the pod without altering it, they are used.
+
+- If it is a pod creation request, then the first valid policy in alphabetical order is used.
+
+- Otherwise, if it is a pod update request, an error is returned, because pod mutations are disallowed during update operations.
+
+* Example
+
+We’ll use this service account to mock a non-admin user.
+
+    kubectl create namespace psp-example
+    kubectl create serviceaccount -n psp-example fake-user
+    kubectl create rolebinding -n psp-example fake-editor --clusterrole=edit --serviceaccount=psp-example:fake-user
+
+    alias kubectl-admin='kubectl -n psp-example'
+    alias kubectl-user='kubectl --as=system:serviceaccount:psp-example:fake-user -n psp-example'
+
+* Example.. 
+
+- Create a policy and a pod
+
+.code src/auth/09-psp.yaml
+
+* Example.. 
+
+- Now, as the unprivileged user, try to create a simple pod:
+
+.code src/auth/09-psp01.yaml
+
+Error from server (Forbidden): error when creating "STDIN": pods "pause" is forbidden: unable to validate against any pod security policy: []
+
+- Although the PodSecurityPolicy was created, neither the pod’s service account nor fake-user have permission to use the new policy:
+
+* Example.. 
+
+    kubectl-user auth can-i use podsecuritypolicy/example
+    no
+
+    kubectl-admin create role psp:unprivileged \
+        --verb=use \
+        --resource=podsecuritypolicy \
+        --resource-name=example
+    
+    kubectl-admin create rolebinding fake-user:psp:unprivileged \
+        --role=psp:unprivileged \
+        --serviceaccount=psp-example:fake-user
+    
+    kubectl-user auth can-i use podsecuritypolicy/example
+    Yes
+
+* Example.. 
+
+- Now retry creating the pod:
+
+    pod "pause" created
+
+- It works as expected! But any attempts to create a privileged pod should still be denied:
+
+    kubectl-user create -f- <<EOF
+    apiVersion: v1
+    kind: Pod
+    metadata:
+    name:      privileged
+    spec:
+    containers:
+        - name:  pause
+        image: k8s.gcr.io/pause
+        securityContext:
+            privileged: true
+    EOF
+
+* Example.. 
+
+Let’s try that again, slightly differently:
+
+kubectl-user run pause --image=k8s.gcr.io/pause
+
+kubectl-user get pods
+No resources found.
+
+kubectl-user get events | head -n 2
+MESSAGE
+Error creating: pods "pause-7774d79b5-" is forbidden: no providers available to validate pod request
+
+* Example.. 
+
+- Fake-user successfully created the deployment (which successfully created a replicaset), but when the replicaset went to create the pod it was not authorized to use the example podsecuritypolicy.
+
+- In order to fix this, bind the psp:unprivileged role to the pod’s service account instead. In this case (since we didn’t specify it) the service account is default:
+
+    kubectl-admin create rolebinding default:psp:unprivileged \
+        --role=psp:unprivileged \
+        --serviceaccount=psp-example:default
+        
+        
+    
+    
+ 
+ * TLS 
+
+- Every Kubernetes cluster has a cluster root Certificate Authority (CA). 
+
+- The CA is generally used by cluster components to validate the API server’s certificate, by the API server to validate kubelet client certificates, etc.
+
+- CA certificate bundle is distributed to every node in the cluster and is distributed as a secret attached to default service accounts.
+
+- Your application can request a certificate signing using the certificates.k8s.io API using a protocol that is similar to the ACME draft.
+
+* Trusting TLS in a Cluster
+
+- Trusting the cluster root CA from an application running as a pod usually requires some extra application configuration. 
+
+- You will need to add the CA certificate bundle to the list of CA certificates that the TLS client or server trusts. 
+
+- For example, you would do this with a golang TLS config by parsing the certificate chain and adding the parsed certificates to the Certificates field in the tls.Config struct.
+
+- The CA certificate bundle is automatically mounted into pods using the default service account at the path /var/run/secrets/kubernetes.io/serviceaccount/ca.crt.
+
+* Requesting a Certificate
+
+- create a TLS certificate for a Kubernetes service accessed through DNS.
+
+  cat <<EOF | cfssl genkey - | cfssljson -bare server
+  {
+    "hosts": [
+      "my-svc.my-namespace.svc.cluster.local",
+      "my-pod.my-namespace.pod.cluster.local",
+      "172.168.0.24",
+      "10.0.34.2"
+    ],
+    "CN": "my-pod.my-namespace.pod.cluster.local",
+    "key": {
+      "algo": "ecdsa",
+      "size": 256
+    }
+  }
+  EOF
+
+* Requesting a Certificate
+
+- Where 172.168.0.24 is the service’s cluster IP, my-svc.my-namespace.svc.cluster.local is the service’s DNS name, 10.0.34.2 is the pod’s IP and my-pod.my-namespace.pod.cluster.local is the pod’s DNS name.
+
+- This command generates two files; it generates server.csr containing the PEM encoded pkcs#10 certification request, and server-key.pem containing the PEM encoded key to the certificate that is still to be created.
+
+* Requesting a Certificate
+
+- Create a Certificate Signing Request object to send to the Kubernetes API
+
+.code src/tls/01-csr.yaml
+
+* Requesting a Certificate
+
+- Notice that the server.csr file created in step 1 is base64 encoded and stashed in the .spec.request field. 
+
+- We are also requesting a certificate with the “digital signature”, “key encipherment”, and “server auth” key usages. 
+
+- The CSR should now be visible from the API in a Pending state. You can see it by running:
+
+- kubectl describe csr my-svc.my-namespace
+
+* Approving Certificate Signing Requests
+
+  kubectl certificate approve
+
+* Download the Certificate and Use It
+
+  kubectl get csr my-svc.my-namespace -o jsonpath='{.status.certificate}' \
+    | base64 --decode > server.crt
+
+- Now you can use server.crt and server-key.pem as the keypair to start your HTTPS server.
+
+
+
+
+
+
+
+* Secrets
+
+- Objects of type secret are intended to hold sensitive information, such as passwords, OAuth tokens, and ssh keys. 
+
+- Users can create secrets, and the system also creates some secrets.
+
+- secret needs to be created before any pods that depend on it.
+
+- Secret API objects reside in a namespace. They can only be referenced by pods in that same namespace.
+
+- Individual secrets are limited to 1MB in size. This is to discourage creation of very large secrets which would exhaust apiserver and kubelet memory. 
+
+
+* Built-in Secrets
+
+- Service Accounts Automatically Create and Attach Secrets with API Credentials
+
+- Kubernetes automatically creates secrets which contain credentials for accessing the API and it automatically modifies your pods to use this type of secret.
+
+* Creating your own Secrets
+
+  $ echo -n 'admin' > ./username.txt
+  $ echo -n '1f2d1e2e67df' > ./password.txt
+
+  $ kubectl create secret generic db-user-pass --from-file=./username.txt --from-file=./password.txt
+
+  $ kubectl get secrets
+    NAME                  TYPE                                 
+    db-user-pass          Opaque                   
+
+  $ kubectl describe secrets/db-user-pass
+    Data
+    ====
+    password.txt:    12 bytes
+    username.txt:    5 bytes
+
+* Creating a Secret Manually
+
+  $ echo -n 'admin' | base64
+  YWRtaW4=
+  $ echo -n '1f2d1e2e67df' | base64
+  MWYyZDFlMmU2N2Rm
+
+.code src/secrets/01-secret.yaml
+
+  $ kubectl create -f ./secret.yaml
+
+* Decoding a Secret
+
+  $ kubectl get secret mysecret -o yaml
+  apiVersion: v1
+  data:
+    username: YWRtaW4=
+    password: MWYyZDFlMmU2N2Rm
+  kind: Secret
+
+  $ echo 'MWYyZDFlMmU2N2Rm' | base64 --decode
+  1f2d1e2e67df
+
+* Using Secrets
+
+- Secrets can be mounted as data volumes or be exposed as environment variables to be used by a container in a pod. 
+
+.code src/secrets/02-secret.yaml 
+
+* Projection of secret keys to specific paths
+
+.code src/secrets/03-secret.yaml /START OMIT/,/END OMIT/
+
+- username secret is stored under /etc/foo/my-group/my-username file instead of /etc/foo/username
+
+* Secret files permissions
+
+- You can also specify the permission mode bits files part of a secret will have. If you don’t specify any, 0644 is used by default. 
+
+.code src/secrets/04-permissions.yaml /START OMIT/,/END OMIT/
+
+- JSON spec doesn’t support octal notation, so use the value 256 for 0400 
+
+.code src/secrets/05-permissions.yaml /START OMIT/,/END OMIT/
+
+- /etc/foo/my-group/my-username will have permission value of 0777
+
+* Consuming Secret Values from Volumes
+
+  $ ls /etc/foo/
+  username
+  password
+
+  $ cat /etc/foo/username
+  admin
+  
+  $ cat /etc/foo/password
+  1f2d1e2e67df
+
+- The secret keys appear as files and the secret values are base-64 decoded and stored inside these files. 
+
+* Mounted Secrets are updated automatically
+
+- When a secret being already consumed in a volume is updated, projected keys are eventually updated as well. Kubelet is checking whether the mounted secret is fresh on every periodic sync. 
+
+* Using Secrets as Environment Variables
+
+.code src/secrets/06-env.yaml /START OMIT/,/END OMIT/
+
+* Consuming Secret Values from Environment Variables
+
+  $ echo $SECRET_USERNAME
+  admin
+  $ echo $SECRET_PASSWORD
+  1f2d1e2e67df
+
+the secret keys appear as normal environment variables containing the base-64 decoded values of the secret data.
+
+* Pod with ssh keys
+
+  $ kubectl create secret generic ssh-key-secret \
+  --from-file=ssh-privatekey=/path/to/.ssh/id_rsa  \
+  --from-file=ssh-publickey=/path/to/.ssh/id_rsa.pub
+
+.code src/secrets/07-secret.yaml /START OMIT/,/END OMIT/
+
+pieces of the key will be available in:
+/etc/secret-volume/ssh-publickey
+/etc/secret-volume/ssh-privatekey
+
+* Pods with prod / test credentials
+
+- This example illustrates a pod which consumes a secret containing prod credentials and another pod which consumes a secret with test environment credentials.
+
+  $ kubectl create secret generic prod-db-secret \
+  --from-literal=username=produser \
+  --from-literal=password=Y4nys7f11
+
+  $ kubectl create secret generic test-db-secret \
+  --from-literal=username=testuser \
+  --from-literal=password=iluvtests
+  
+  $ kubectl create secret generic dev-db-secret \
+  --from-literal=username=devuser \
+  --from-literal=password=S\\!B\\\*d\\$zDsb
+
+* Pods with prod / test credentials
+
+.code src/secrets/08-prodtest.yaml /START OMIT/,/END OMIT/
+
+* Pods with prod / test credentials
+
+.code src/secrets/08-prodtest.yaml /START1 OMIT/,/END1 OMIT/
+
+* Pods with prod / test credentials
+
+- Both containers will have the following files present on their filesystems with the values for each container’s environment:
+/etc/secret-volume/username
+/etc/secret-volume/password
+
+- two pods differ only in one field; this facilitates creating pods with different capabilities from a common pod config template.
+
+- You could further simplify the base pod specification by using two Service Accounts: one called, say, prod-user with the prod-db-secret, and one called, say, test-user with the test-db-secret. Then, the pod spec can be shortened to.
+
+.code src/secrets/08-prodtest1.yaml /START OMIT/,/END OMIT/
+
+* Dotfiles in secret volume
+
+- In order to make piece of data ‘hidden’ (i.e., in a file whose name begins with a dot character), simply make that key begin with a dot.
+
+.code src/secrets/09-secret.yaml 
+
+* Using imagePullSecrets
+
+- An imagePullSecret is a way to pass a secret that contains a Docker (or other) image registry password to the Kubelet so it can pull a private image on behalf of your Pod.
+
+
+
+
+
+
+* Storage
+
+* Volume - Attaching disk storage to containers 
+
+- The Kubernetes Volume provides abstraction for underlying storage that solves below problems..
+  
+- On-disk files in a Container are ephemeral, when a Container crashes, kubelet will restart it, but the files will be lost - the Container starts with a clean state. 
+
+- When running Containers together in a Pod it is often necessary to share files between those Containers. 
+
+* Volume..
+
+- To use a volume, a Pod specifies what volumes to provide for the Pod (the .spec.volumes field) and where to mount those into Containers (the .spec.containers.volumeMounts field).
+
+- A process in a container sees a filesystem view composed from their Docker image and volumes. The Docker image is at the root of the filesystem hierarchy, and any volumes are mounted at the specified paths within the image. 
+
+- If a pod contains multiple containers, the volume can be used by all of them at once.
+
+* Volumes plugins
+
+- Remote Storage
+  
+  GCE Persistent disk, AWS EBS, Azure file system, many others...
+
+- Ephemeral Storage
+  
+  EmptyDir, Secret, ConfigMap, DownwardAPI 
+
+* Volume plugin - emptyDir
+
+- Temp scratch file space on host file system
+
+- An emptyDir volume is first created when a Pod is assigned to a Node, and exists as long as that Pod is running on that node.
+
+- When a Pod is removed from a node for any reason, the data in the emptyDir is deleted forever.
+
+- emptyDir volume is especially useful for sharing files between containers running in the same pod. 
+
+- By default, emptyDir volumes are stored on whatever medium is backing the node - that might be disk or SSD or network storage
+
+- you can set the emptyDir.medium field to "Memory" to tell Kubernetes to mount a tmpfs.
+
+* emptyDir 
+
+.code src/storage/02-emptyDir.yaml
+
+
+* hostpath
+
+- A hostPath volume mounts a file or directory from the host node’s filesystem into your Pod.
+
+- Certain system-level pods do need to either read the node’s files or use the node’s filesystem to access the node’s devices through the filesystem. 
+
+- The files or directories created on the underlying hosts are only writable by root. You either need to run your process as root in a privileged Container or modify the file permissions on the host to be able to write to a hostPath volume.
+
+* Example 
+
+- To access Docker internals; use a hostPath of /var/lib/docker
+
+- cAdvisor in a Container use a hostPath of /sys
+
+  $ kubectl describe po fluentd-kubia-4ebc2f1e-9a3e --namespace kube-system
+  Volumes:
+  varlog:
+    Type:       HostPath (bare host directory volume)
+    Path:       /var/log
+  varlibdockercontainers:
+    Type:       HostPath (bare host directory volume)
+    Path:       /var/lib/docker/containers
+
+* hostpath
+
+.code src/storage/04-hostpath.yaml
+
+* Persistent storage
+
+- When an application running in a pod needs to persist data to disk and have that same data available even when the pod is rescheduled to another node
+
+- Because this data needs to be accessible from any cluster node,  it must be stored on some type of network-attached storage (NAS).
+
+
+
+* awsElasticBlockStore
+
+- awsElasticBlockStore volume mounts an Amazon Web Services (AWS) EBS Volume into your Pod. 
+
+- when a Pod is removed, the contents of an EBS volume are preserved and the volume is merely unmounted. 
+
+- This means that an EBS volume can be pre-populated with data, and that data can be “handed off” between Pods.
+
+- instances need to be in the same region and availability-zone as the EBS volume
+
+- EBS only supports a single EC2 instance mounting a volume
+
+  aws ec2 create-volume --availability-zone=eu-west-1a --size=10 \
+  --volume-type=gp2
+
+* awsElasticBlockStore
+
+.code src/storage/01-ebs.yaml
+
+* gcePersistentDisk
+
+- A feature of PD is that they can be mounted as read-only by multiple consumers simultaneously. This means that you can pre-populate a PD with your dataset and then serve it in parallel from as many Pods as you need. 
+
+  gcloud compute disks create --size=500GB --zone=us-central1-a my-data-disk
+
+.code src/storage/03-gcp.yaml
+
+* gcePersistentDisk - mongodb
+
+  $ gcloud container clusters list
+  NAME   ZONE            MASTER_VERSION  MASTER_IP       ...
+  kubia  europe-west1-b  1.2.5           104.155.84.13
+
+  $ gcloud compute disks create --size=1GiB --zone=europe-west1-b mongodb
+
+.code src/storage/03-gcp-mongo.yaml
+
+* gcePersistentDisk - mongodb
+
+$ kubectl exec -it mongodb mongo
+  > use mystore
+  > db.foo.insert({name:'foo'})
+  > db.foo.find()
+
+$ kubectl delete pod mongodb
+
+$ kubectl create -f mongodb-pod-gcepd.yaml
+
+$ kubectl exec -it mongodb mongo
+  > use mystore
+  > db.foo.find()
+
+* PersistentVolumes and PersistentVolumeClaims
+
+* PV and PVC
+
+- To enable apps to request storage in a Kubernetes cluster without having to deal with infrastructure specifics, two new resources were introduced. They are Persistent-Volumes and PersistentVolumeClaims.
+
+.image img/storage.png
+
+* PV and PVC
+
+- When creating the PersistentVolume, the admin specifies its size and the access modes it supports.
+
+- When a cluster user needs to use persistent storage in one of their pods, they first create a PersistentVolumeClaim manifest, specifying the minimum size and the access mode they require.
+
+- The user then submits the PersistentVolumeClaim manifest to the Kubernetes API server, and Kubernetes finds the appropriate PersistentVolume and binds the volume to the claim.
+
+- The PersistentVolumeClaim can then be used as one of the volumes inside a pod. Other users cannot use the same PersistentVolume until it has been released by deleting the bound PersistentVolumeClaim.
+
+* Configure a Pod to Use a PersistentVolume for Storage
+
+- Kubernetes supports hostPath for development and testing on a single-node cluster. A hostPath PersistentVolume uses a file or directory on the Node to emulate network-attached storage.
+
+.code src/storage/05-pv.yaml
+
+* Create PV.. 
+
+  kubectl apply -f https://k8s.io/examples/pods/storage/pv-volume.yaml
+
+  $ kubectl get pv task-pv-volume
+  NAME             CAPACITY   ACCESSMODES   RECLAIMPOLICY   STATUS
+  task-pv-volume   10Gi       RWO           Retain          Available
+
+* Create a PVC..
+
+- Requests a volume of at least three gibibytes that can provide read-write access.
+
+.code src/storage/05-pvc.yaml
+
+* Create a PVC..
+
+  $ kubectl apply -f https://k8s.io/examples/pods/storage/pv-claim.yaml
+
+  $ kubectl get pv task-pv-volume
+  NAME             CAPACITY   ACCESSMODES   RECLAIMPOLICY   STATUS
+  task-pv-volume   10Gi       RWO           Retain          Retain
+
+  $ kubectl get pvc task-pv-claim
+  NAME            STATUS    VOLUME           CAPACITY   ACCESSMODES   STORAGECLASS 
+  task-pv-claim   Bound     task-pv-volume   10Gi       RWO           manual      
+
+* Create a Pod
+
+.code src/storage/05-pod.yaml
+
+- Pod’s configuration file specifies a PersistentVolumeClaim
+
+* Access control
+
+- Storage configured with a group ID (GID) allows writing only by Pods using the same GID. Mismatched or missing GIDs cause permission denied errors.
+
+- To reduce the need for coordination with users, an administrator can annotate a PersistentVolume with a GID. Then the GID is automatically added to any Pod that uses the PersistentVolume.
+
+.code src/storage/06-pv.yaml
+
+- When a Pod consumes a PersistentVolume that has a GID annotation, the annotated GID is applied to all Containers in the Pod
+
+* Storage class
+
+- A StorageClass provides a way for administrators to describe the “classes” of storage they offer. 
+
+- Different classes might map to quality-of-service levels, or to backup policies, or to arbitrary policies determined by the cluster administrators. 
+
+- Each StorageClass contains the fields provisioner, parameters, and reclaimPolicy, which are used when a PersistentVolume belonging to the class needs to be dynamically provisioned.
+
+
+* Storage class..
+
+.code src/storage/07-storageclass.yaml
+
+* Provisioner
+
+- Determines what volume plugin is used for provisioning PVs. AWS EBS, Azure File, Azure Disk, OpenStack Cinder, GCE PD, Glusterfs
+
+* Reclaim Policy
+
+- Reclaim Policy can be either Delete or Retain, default is Delete.
+
+* Volume Binding Mode
+
+- By default, the Immediate mode indicates that volume binding and dynamic provisioning occurs once the PersistentVolumeClaim is created.
+
+- WaitForFirstConsumer mode will delay the binding and provisioning of a PersistentVolume until a Pod using the PersistentVolumeClaim is created. PersistentVolumes will be selected or provisioned conforming to the topology that is specified by the Pod’s scheduling constraints. 
+
+* Restrict the topology of provisioned volumes
+
+.code src/storage/08-zone.yaml
+
+* Parameters
+
+type: io1, gp2, sc1, st1. See AWS docs for details. Default: gp2.
+
+iopsPerGB: only for io1 volumes. I/O operations per second per GiB. AWS volume plugin multiplies this with size of requested volume to compute IOPS of the volume and caps it at 20 000 IOPS
+ 
+fsType: Default: "ext4".
+
+encrypted: denotes whether the EBS volume should be encrypted or not. Valid values are "true" or "false". 
+
+* Listing storage classes
+
+  $ kubectl get sc
+  NAME                 TYPE
+  fast                 kubernetes.io/gce-pd
+  standard (default)   kubernetes.io/gce-pd
+
+* Examining the default storage class
+
+  $ kubectl get sc standard -o yaml
+  ...
+  parameters:                         
+    type: pd-standard                                           
+  provisioner: kubernetes.io/gce-pd 
+  ...
+
+- Creating a PersistentVolumeClaim without specifying a storage class, provisions GCE Persistent Disk of type pd-standard.
+
+* Dynamic Volume Provisioning
+
+- Dynamic volume provisioning allows storage volumes to be created on-demand.
+
+- To enable dynamic provisioning, a cluster administrator needs to pre-create one or more StorageClass objects for users.
+
+- StorageClass objects define which provisioner should be used and what parameters should be passed to that provisioner when dynamic provisioning is invoked. 
+
+* Using Dynamic Provisioning
+
+- Users request dynamically provisioned storage by including a storage class in their PersistentVolumeClaim.
+
+.code src/storage/12-pvc.yaml
+
+- This claim results in an SSD-like Persistent Disk being automatically provisioned. When the claim is deleted, the volume is destroyed.
+
+* Defaulting Behavior
+
+- Making sure that the DefaultStorageClass admission controller is enabled on the API server.
+
+- An administrator can mark a specific StorageClass as default by adding the storageclass.kubernetes.io/is-default-class annotation to it. 
+
+
+    
+        
