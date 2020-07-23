@@ -1,0 +1,517 @@
+1)    kubectl api-resources
+2)    kubectl explain API-Resources
+
+
+3)    POD Manifest file or POD creation via Command Line
+
+      Recommended Command  
+
+      kubectl run nginx --image=nginx --dry-run=clinet  -o yaml
+
+      Don't Use: "kubectl run nginx --image=nginx --restart=Never --dry-run=client -o yaml"  
+
+      Extend:
+      --limits cpu=10m,memory=10Mi --requests cpu=2m,memory=2Mi
+      --labels=env=dev
+      Use help command to get more extend "kubectl run --help"
+
+
+
+CKA Exam Questions Direct Questions on above Command
+
+
+
+1)Create a Pod named nginx in nginx Namespace ?
+
+name=nginx ,image=nginx,namespace=nginx
+
+Solution:
+
+kubectl run nginx --image=nginx --namespace=nginx
+
+Twist: You need to create namespace before that :)
+
+kubectl create namespace nginx
+
+
+
+2)Create a Pod that having 3 container in it ? (Multi-Pod)
+
+image=nginx
+image=redis
+image=tomcat
+
+Solution: Create a pod-manifest file for a container and append Container section for rest images.
+kubectl run  nginx --image=nginx --dry-run=client -o yaml and put in multipod.yaml file
+
+Now Append multipod.yaml for rest of images
+
+
+3)Create below 2 nginx image pods in which one of them is labelled with env=prod and another one labelled with env=dev and veryfy the same ?
+
+a) nginx-dev1, labelled env=dev  b) nginx-dev2, labelled env=prod
+
+kubectl run  nginx-dev1 --image=nginx --labels=env=dev --dry-run=client -o yaml
+kubectl run  nginx-dev2 --image=nginx --labels=env=prod --dry-run=client -o yaml
+
+Verify the labels :
+kubectl get pods --show-labels
+
+
+
+4)  POD Manifest file or POD creation via Command Line
+     
+	 
+      kubectl run  nginx --image=nginx --dry-run=client -o yaml
+
+      Don't Use: "kubectl run nginx --image=nginx --restart=Never --dry-run -o yaml" 
+
+      Extensions:
+      Resources Limit in Pod: 
+           --limits cpu=10m,memory=10Mi --requests cpu=2m,memory=2Mi
+       Pod Labeling:
+           --labels=env=dev
+     
+
+5)    Deployment Manifest file or Deployment creation via command Line
+
+         Kubectl run nginx --image=nginx --port=80 --dry-run=client -o yaml
+          Extensions:
+          Conainer-Port
+           --port=80
+     or
+        kubectl create deploy nginx2 --image=nginx --dry-run=client -o yaml # (But extended command not working)
+        Adding 1 more important Kubernetes Command that is also part of        deployment based Question
+
+        Scale ReplicaSet
+           kubectl scale --current-replicas=2 --replicas=3 deployment/deploymentName
+
+
+Direct Question:
+
+############
+Create a deployment manifest file called webapp.yaml with image nginx and having 5 replicas in it, put the file in the /tmp directory with named webapp.yaml ?
+
+kubectl run webapp --image=nginx --replicas=5 --dry-run=client -o yaml
+
+Create the required file from above command output and save it on required directory.
+
+############
+Trick:
+    You don't need to remember all those command's , you just need to type 'deployment' in your open kubernetes.io site and you will get this page "https://kubernetes.io/docs/concepts/w..." that having all deployment rollout command's that we required for this Question.
+
+     a) Create a deployment of webapp with image nginx:1.17.1 with container port 80 and verify the image version
+
+         kubectl run webapp --image=nginx:1.17.1 --port=80 --record
+
+         Use of --record extension : Help us keep the record
+         kubectl rollout history deploy webapp
+
+     b) verify the image version ?
+         kubectl describe deploy webapp | grep Image
+
+     c) Update the deployment with the image version 1.17.4 and verify the same ?
+         kubectl set image deploy/webapp webapp=nginx:1.17.4 --record
+
+
+         Point to be Note:  Here webapp=nginx:1.17.4 means "container name = image name"
+
+
+
+     d) verify the image version ?
+
+         kubectl describe deploy webapp | grep Image
+
+
+
+     e) Check the rollout history and make sure everything is ok after the update ?
+
+        kubectl rollout history deploy webapp
+
+        kubectl get deploy webapp --show-labels
+
+        kubectl get po -l run=webapp
+
+
+
+     f) Undo the deployment to the previous version 1.17.1 and verify Image has the previous version ?
+
+       kubectl rollout undo deploy webapp
+
+       kubectl describe deploy webapp | grep Image
+
+############
+     a)Create a deployment named webapp that having 2 replicas with Named myapp with Nginx image ?
+
+       kubectl run myapp --image=nginx --replicas=2 --record=true
+
+       kubectl get deploy  myapp  --show-labels
+
+       kubectl get po -l run=myapp
+	   
+      b) Once Deployment is done than increase replicas 2 to 3
+
+       kubectl scale --current-replicas=2 --replicas=3 deployment/myapp --record=true
+       or
+       kubectl scale deployment.v1.apps/myapp --replicas=4 --record=true
+
+
+
+
+6) Service Manifest file or Service Creation via Command Line  
+
+     kubectl expose deployment/pod nginx --port=80 --target-port=8000 --name=nginx-https --type NodePort
+     kubectl expose --help
+       Extensions:
+            kubectl expose (-f FILENAME | TYPE NAME) [--port=port] [--protocol=TCP|UDP|SCTP] [--target-port=number-or-name] [--name=name] [--external-ip=external-ip-of-service] [--type=type] [options]
+
+
+1)
+  a) Create an pod with a yaml manifest
+  image= nginx
+  
+  Pod name=mypod
+  Manifest name = mypod.yaml
+   
+  kubectl run --generator=run-pod/v1 mypod --image=nginx --dry-run=client -o yaml 
+ in  mypod.yaml
+
+  b) Now create a nodeport type service on port  32080
+
+  kubectl expose pod mypod --port=80 --target-port=80 --dry-run --type NodePort -o yaml   in svc.yaml
+
+2)
+
+
+a) Create the deployment redis and expose it with svc redis-svc.
+image=redis
+
+kubectl run redis --image=redis
+kubectl expose deployment redis --port 6379 --target-port 6379 --name redis-svc
+
+b)
+
+Get the dns records for the service and pods for the deployment “redis”
+copied to files /tmp/dnsrecord-pod & /tmp/dnsrecord-svc
+
+solution:
+  Get pod ip   :kubectl get pod -o wide
+  Get svc name :kubectl get svc
+ 
+Create a tmp pod and execute nslookup command from it.
+
+Point to Noted here : POD IP format should be a-b-c-d not a.b.c.d 
+
+
+kubectl run busysbox1 --image=busybox:1.28 --restart=Never --rm -it -- nslookup pod-ip.default.pod 
+
+in /tmp/dnsrecord-pod
+
+kubectl run busysbox --image=busybox:1.28 --restart=Never --rm -it -- nslookup redis-svc
+
+
+3) 
+List all the pods that are serviced by the service “webservice”and copy the output in /opt/yourname/webservice.targets
+
+kubectl describe svc webservice 
+
+check endpoint
+
+
+
+   
+7)
+
+endpoints=https://[192.168.0.13]:2379
+cacert=/etc/kubernetes/pki/etcd/ca.crt
+key=/etc/kubernetes/pki/etcd/server.key
+File Path=/tmp/test.rb
+
+
+
+ETCDCTL_API=3 etcdctl --endpoints=[ENDPOINT] --cacert=[CA CERT] --cert=[ETCD SERVER CERT] --key=[ETCD SERVER KEY] snapshot save [BACKUP FILE NAME]
+
+ETCDCTL_API=3 etcdctl --endpoints $ENDPOINT snapshot save snapshotdb
+
+ETCDCTL_API=3 etcdctl --endpoints=https://[192.168.0.13]:2379 --cacert=/etc/kubernetes/pki/etcd/ca.crt --cert=/etc/kubernetes/pki/etcd/server.crt --key=/etc/kubernetes/pki/etcd/server.key snapshot status /tmp/test.rb
+
+DIY:
+
+
+1) login Here: https://labs.play-with-k8s.com/#  ( Register it required )
+2) Select and setup 2 node k8s Kubeadm cluster ( you will get instruction on the first node itself ) 
+3) Run some test deployment
+4) Setup ETCD client as per below guid ( might be it required to install wget via yum)
+
+
+yum install wget -y 
+
+export RELEASE="3.3.13"
+wget https://github.com/etcd-io/etcd/relea...
+tar xvf etcd-v${RELEASE}-linux-amd64.tar.gz
+cd etcd-v${RELEASE}-linux-amd64
+sudo mv etcd etcdctl /usr/local/bin 
+
+
+8)exercise you will get how to setup 2 node kubernetes cluster
+
+
+9) we need to use Init Container to create a file named “sharedfile.txt” 
+   under the “work” directory. Here application container should check if the file exists and sleep for a while. 
+If the file does not exist the application container should exit.
+
+Questions: ( Answer i will put in first comment) 
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: init-container-test
+spec:
+  containers:
+  - name: application-container
+    image: alpine
+    command: ['sh', '-c', 'if [ -f /work/sharedfile.txt ]; then sleep 99999; else exit; fi']
+    volumeMounts:
+    - name: workdir-volume
+      mountPath: /work
+  volumes:
+  - name: workdir-volume
+    emptyDir: {}
+
+
+init containers:  which run before the main containers get started in the same POD.
+1) Init containers always run to completion.
+2) Each init container must complete successfully before the next one starts.
+
+https://kubernetes.io/docs/concepts/workloads/pods/init-containers/
+
+###################################################################
+Problem Statement: Add a init container in given pod manifest file.
+Condition: Pod status should be running and do not delete any existing configuration
+Twist:
+ /work/sharedfile.txt should exist in mount Volume
+
+Solution:
+1) Need to Add init container as per the task
+2) Init Container will create this file (/work/sharedfile.txt) in the same mount Volume before to start main container in the same POD.
+
+
+
+
+10 ) 
+
+
+Problem :  Static pod creation in a specified node in a given k8 cluster.  Note:  Managed by Kubeadm
+
+Twist 1: it will be in a worker node not in master node 
+Create a pod manifest file in master node  
+
+Note: Here i am doing in default namespace
+
+
+kubectl run  nginx --image=nginx --dry-run=client -o yaml
+
+
+Put out put in test.yaml file 
+
+
+Copy file in given worker node 
+
+
+scp test.yaml node01:/etc/kubernetes/manifests
+
+
+ssh to that node to execute kubelet daemon.
+
+
+
+Twist: 2
+
+
+There is no static pod directory defined in /var/lib/kubelet/config.yaml for that particular node ,
+
+
+Solution:
+a)
+You need to add below line in above file in /var/lib/kubelet/config.yaml
+
+
+staticPodPath: /etc/kubernetes/manifests
+
+
+b than just copy pod.yaml in /etc/kubernetes/manifests
+
+
+c Restart the Kubelet if required do daemon restart as well.
+
+
+service kubelet stop
+service kubelet start
+
+
+Check on the master node that static pod created or not in default namespace .
+
+
+
+11) 
+
+A DaemonSet ensures that all (or some) Nodes run a copy of a Pod.
+
+https://kubernetes.io/docs/concepts/w...
+
+
+Problem: Create a DaemonSet from a nginx image and make sure all worker nodes having a copy of same pod.
+
+Solution:
+
+Create a DaemonSet Manifest file directly if you can remember the syntax required for DaemonSet resource and than deploy it.
+
+Trick to create DaemonSet Manifest file:
+
+1) Create a deployment manifest file ( Already Explained below Command in Earlier recording )
+
+
+kubectl run nginx --image=nginx --replicas 2 --dry-run -o yaml 
+
+2) Get the Daemonset resources info (Already Explained below Command in Earlier recording)
+
+kubectl api-resources
+kubectl explain DaemonSet
+
+3) Change Deployment Manifest file to DaemonSet
+
+Caution:
+Taints and Tolerations
+https://kubernetes.io/docs/concepts/s...
+kubectl taint nodes node1 key:NoSchedule-
+
+
+
+12)  volumes 
+
+
+A)
+Create a Pod with an image Redis and configure a temporary directory in it that shares a pod's lifetime on given path (/data/redis). ( Volumes)
+
+// emptyDir is the volume that lasts for the life of the pod kubectl create -f redis-storage.yaml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: redis-dir
+spec:
+  containers:
+  - name: redis
+    image: redis
+    volumeMounts:
+    - name: redis-storage
+      mountPath: /data/redis
+  volumes:
+  - name: redis-storage
+    emptyDir: {}
+
+
+
+B1)
+Create a hostPath PersistentVolume:
+named: task-pv-volume
+storage: 10Gi
+access modes: ReadWriteOnce
+volume  /mnt/data
+
+
+
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: task-pv-volume
+  labels:
+    type: local
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/mnt/data"
+
+
+
+B2)
+Create a PersistentVolumeClaim
+storage: 3Gi
+access mode: ReadWriteOnce
+status: Bound
+
+
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: task-pv-claim
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteOnce
+  resources:
+   requests:
+    storage: 3Gi
+
+
+B3)
+
+Pod with above PVC
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: redis
+spec:
+  containers:
+  - name: redis
+    image: redis
+    volumeMounts:
+    - name: redis-storage
+      mountPath: /data/redis
+  volumes:
+  - name: redis-storage
+    persistentVolumeClaim:
+        claimName: task-
+
+
+
+13) Secrets
+
+1)Create a kubernetes secret from given value  ?
+
+user = admin
+password = 1234
+
+Solution:
+
+kubectl create secret generic mysecret  --from-literal username=admin --from-literal password=1234
+
+
+2) Use above secret value as a env variable in pod
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: secret-env-pod
+spec:
+  containers:
+  - name: mycontainer
+    image: redis
+    env:
+      - name: SECRET_USERNAME
+        valueFrom:
+          secretKeyRef:
+            name: mysecret
+            key: username
+      - name: SECRET_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: mysecret
+            key: password
