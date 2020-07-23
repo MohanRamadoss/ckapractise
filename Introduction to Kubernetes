@@ -1,10 +1,5 @@
 Introduction to Kubernetes
 
-Deepak Gunjetti
-Solution Architect @ Andcloud
-deepak@andcloud.io
-@dgunjetti
-
 * Introduction
 
 - Kubernetes is a container orchestrator, that automates the deployment and life-cycle management of containerized applications. 
