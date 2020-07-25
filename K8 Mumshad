@@ -1,0 +1,1206 @@
+Purpose of K8 is to host application in form of conatainer in an automated fashion so that you can easily deploy as many instances of your application as required.
+K8 cluster is set of nodes.
+
+
+Cluster Architecture
+========================================================================================================================================================================
+Worker Node:- Are the ships which can load conatiner.
+Master Node:- Manage K8 cluster.Store information regarding different nodes etc.It does this using controlled plained components.
+
+There are many containers loaded in ship so you need to maintain information about what container loaded on which ship,at what time ?
+This is stored in highly available key store known as ETCD.It db which stored infor in key-value format.
+
+Schedular: It identifys a right node to place a conatiner based on containers resource requirement,etc.
+
+kube-apiserver: It enables communication between various componets of cluster.Its responsible for orchestration all operation in cluster.It expose api used by external 
+to perform manegenet operation in cluster.
+
+kublet is the caption of this Ship.It an agent that runs on each node in a cluster.It listen intructions from kube-api server and create or destrys conainers based 
+on that.
+
+kube-proxy: communication between worker nodes are enabled by kube-proxy service.This ensure necessary rules inplace on worker node to allow conatiner running on them
+to reach each other.
+
+Root directory is registry.
+
+
+ETCD (port 2379)
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Its is a distributed reliable key-value store that is Simple,Secure and Fast.key-value store data inform of document.
+To install ETCD
+1. Download binary
+2. Extract
+2. Run ETCD service
+
+ETCD in K8 stores info on.Any change made in ETCD cluster is stored in this database
+1. NOdes
+2. PODS
+3. Configs
+4. Secrets
+5. Accounts
+6. Roles
+7. Bindings
+8. Others
+
+Kube API Server:- Primary maneger in k8.When you run kubectl command.kubecontol utility reaches API server,it then validates the request and retrives data from ETCD
+cluster and respond back.
+1. Authenticate user
+2. Validate request
+3. Retrieve Data
+4. Update ETCD
+5. Schedular
+6. kubelet
+
+
+kube controller Manager:- It cntinously monitor the state of various components in K8 cluster.It has node controller which takes status of node every 5 seconds.
+It marks node as unhealthy if it doesnot recievs hearbest in 40 seconds.Next controller is replication controller whic monitors the status of replica sets nad make
+sure desired number of pods availabe at any given time.
+
+Kube Schedular:- This is reponsible for deciding which POD goes on which node.It doesnot actually place the POD on node its job of kubelet.It identifies nodes based
+on CPU,Memory requirement etc
+
+kubelet:- This like captin on ship which leads all activities.Kublet in worker node register it with the K8 cluster.When it recieves intruction to load a POD on node it
+request container runtime engine maybe docker to pull image and run.Kublet then monitors the sate of POD and conatiners in it and reports to kube api server on timely
+basic.kubeadm does not automatically deploy kublet unlike other components.You have to manually deploy kubelet on worker nodes.
+
+kube proxy:- Within K8 cluster every POD can reach every other POD this can be accomplish by deploying POD networking solution to the cluster.POD network is internal
+network that expands across all nodes in cluster to which all PODS connected.Through this network they are able to communicate with each other.
+Suppose i have web application in POD1 and DB conatiner in POD2.Yes we can use the IP of DB to access it from web application in POD1.But that is not proper way as
+IP may change.FOr this best way is to expose the DB with a service.This service also gets IP.Whenever web-app tries to reach service it forwards traffic to DB.
+This service will not join the POD network as it not container.kube proxy is process that runs on each node in K8 cluster its job is to find every time a new service is
+created its job is to crate a approprite rule on each node to forward traffic to backend pod (db).
+
+POD:- COntainers are encapsulated in K8 object known as POD which then deployed on worker Node.POD is instance of application.Its smallest object you can create in K8.
+When we want to scale we create new POD with same instance of application>if we need more capacity we will create one more POD.POD usually have 1 2 1 relationship with
+conatiners running your application.To scale up you create new POD and to scale down we delet POD.We dont add additional container to existing POD to scale up the
+application.
+A POD has multiple conatiner but not of same kind.Sometime there might be senario that you need helper conatiner which might be doing some task for our web-application
+like processing file uploaded by user.You want this conatiner to live alongside your application in that case you can have both conatiner part of same POD.These two
+conatiner can communicate using localhost as they share same network space.
+$kubectl run nginx
+Above command will create a POD and deploy nginx conatiner on it.It pull image from dockerhub here.You can configure K8 to images rom dockerhub.
+$kubectl get pods   -----> to list pods
+
+pod-defination.yaml  ----> It has below 4 sections
+apiVersion: v1  {string}
+kind: Pod       {string} 
+metadata:       {dictionary} 
+  name: myapp-pod
+  labels:
+      app: myapp
+spec:
+  containers               {list/array}
+    - name: nginx-conatiner  {- --> indicates first item in list}
+      image: nginx
+
+
+apiversion possible values:-
+------------------------------------
+kind        Version
+POD         v1
+Service     v1
+ReplicaSet  apps/v1
+Deployment  apps/v1
+
+$kubectl create -f pod-defination.yaml   ----> to crate POD from YAML
+
+===> Below example of YAML file which creates POD
+apiVersion: v1  
+
+kind: Pod       
+
+metadata:       
+  name: myapp-pod
+  labels:
+      app: myapp
+      type: fron-end
+spec:
+  containers               
+    - name: nginx-conatiner 
+      image: nginx
+
+    - name: backend-conatiner
+      iamge: redis 
+
+
+Replication Controller:-
+It ensures HA.It makes sure that specified number of POD running always.It also helps in sharing the load across multiple PODS i.e load balancing.
+Replication Controller and replica Set have same purpose but they are not same.Replication Controller is older which is replaced by replica Set.
+Example:-
+re-defination.YAML
+
+apiVersion: v1
+kind: Replication Controller
+metadata:                       ----> for replication Controller
+  name: myapp-rc
+  labels:
+    app: myapp
+    type: front-end
+spec:
+  template:
+    metadata:                 ----> for PODs
+      name: myapp-pod
+      labels:
+        app: myapp
+        type: fron-end
+    spec:
+      containers               
+        - name: nginx-conatiner 
+          image: nginx
+ 
+        - name: backend-conatiner
+          iamge: redis 
+
+  replicas: 3
+
+$kubectl create -f re-defination.YAML
+$kubectl get replicationcontroller
+
+===> Above was replication Cntroller.Now we will see replicationSet
+
+replicaset-defination.YAML
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:                       
+  name: myapp-replicaset
+  labels:
+    app: myapp
+    type: front-end
+spec:
+  template:
+    metadata:                 ----> for PODs
+      name: myapp-pod
+      labels:
+        app: myapp
+        type: fron-end
+    spec:
+      containers               
+        - name: nginx-conatiner 
+          image: nginx
+ 
+        - name: backend-conatiner
+          iamge: redis 
+
+  replicas: 3  
+  selector:                  {this is required as replicat set can also manage PODS which are not created in this defination/which are create before this replicaset}
+    matchLables:
+       type: front-end
+
+Note:- Selector is also there in Recplication controller as we hv not specified above it will assume the POD label in the defination  
+
+===> Incase you want to update no of replicas
+$kubectl scale --replicas=6 -f replicaset-defination.YAML
+
+All Commands:-
+$kubectl create -f replicaset-defination.yaml
+$kubectl get replicaset
+$kubectl delete replicaset myapp-replicaset
+$kubectl replace -f replicaset-defination.yaml
+$kubectl scale --replicas=6 -f replicaset-defination.YAML
+
+Deployment:- This provides the capability to upgrade underlying instances seamlessly,using rolling updates,undo changes as required.We have to create deployemt YAML file.
+
+deployment-defination.YAML
+apiVersion: apps/v1
+kind: Deployment             -----> Only chnage from above
+metadata:                       
+  name: myapp-replicaset
+  labels:
+    app: myapp
+    type: front-end
+spec:
+  template:
+    metadata:                
+      name: myapp-pod
+      labels:
+        app: myapp
+        type: fron-end
+    spec:
+      containers               
+        - name: nginx-conatiner 
+          image: nginx
+ 
+        - name: backend-conatiner
+          iamge: redis 
+
+  replicas: 3  
+  selector:                  
+    matchLables:
+       type: front-end
+
+$kubectl create -f deployment-defination.yaml
+$kubectl get deployments
+$kubectl get replicaset
+$kubectl get pods
+
+$kubectl get all ==========> to get all K8 objects
+
+
+Notes:-
+1. Create an NGINX Pod
+   kubectl run --generator=run-pod/v1 nginx --image=nginx
+
+2. Generate POD Manifest YAML file (-o yaml). Don't create it(--dry-run)
+   kubectl run --generator=run-pod/v1 nginx --image=nginx --dry-run -o yaml
+
+3. Create a deployment
+   kubectl create deployment --image=nginx nginx
+
+4. Generate Deployment YAML file (-o yaml). Don't create it(--dry-run)
+   kubectl create deployment --image=nginx nginx --dry-run -o yaml
+
+5. Generate Deployment YAML file (-o yaml). Don't create it(--dry-run) with 4 Replicas (--replicas=4)
+   kubectl create deployment --image=nginx nginx --dry-run -o yaml > nginx-deployment.yaml
+
+
+NameSpaces:-
+All the objects in K8 will be placed in default Namespace when cluster is setup.K8 also create a set of POD and services for its internal puspose such as those 
+required by networking solution,DNS service etc to isolate this and prevent anyone from acidentally deleting or modifying services K8 creates them at anothe namespace
+created as cluster startup name Kube System.3rd Namespace created by K8 automatically is "kube-public" this is where resources made avilable to all users are created.
+We can created our own Namespace as well for example if you want to use your cluster for both dev and production enviroment but at same time isolate resources between 
+them you can create a different namespace for each of them.Each namespace can have set of Policy which determins who can do what.You can also restrict the namespce
+to use only allowed quntity of resources.
+
+DNS will look like below in Namesapace
+db-service.dev.svc.cluster.local
+
+Here,
+db-service = service name   
+dev = Namespace
+svc = Service
+cluster.local = domain
+
+$kubectl get pods    ====> Will list PODS only in default Namespace.
+$kubectl get pods --namespace=kube-system  ===> to fetch from perticular Namespace
+
+$kubectl create -f pod-defination.yaml --namespace=dev   {You can put this in YAML file also in metadata section}
+
+===> To change the default namespace to DEV namespace permanently
+$kubectl config set-context $(kubectl config current-context) --namespace=dev
+$kubectl get pods
+
+$kubectl get pods --all-namespaces    ======> To see PODS in all namespaces
+
+compute-quota.YAML
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+    name: compute-quota
+    namespace: dev
+
+spec:
+  hard:
+    pods: "10"
+    requests.cpu: "4"
+    requests.memory: 5Gi
+    limits.cpu: "10"
+    limits.memory: 10Gi
+
+
+Services:-
+K8 services enable communication between various components within and outside of organization.K8 services helps us connect application together with other applications
+or users.  K8 service is an object just like POD,replicaset etc.One of its use case is to listen the POD on node and forward request on that POD to a POD running the
+web application.This type of service is known as node port service bcoz service listen  to a POD on node and forward request to a POD.below are types of services
+1. Nodeport service  {Port range 30000 to 32767}
+2. CLusterIP  {here service crate a virtual IP inside cluster to enable communication between different services}
+3. Loadbalencer
+
+service-defination.yaml
+apiversion: v1
+kind: Service
+metadata:
+    name: myapp-service
+
+spec:
+    type: NodePort
+    ports:
+     - targetport: 80
+       port: 80
+       nodeport: 3008
+    selector:             --------> This links service to POD
+       app: myapp
+       type: front-end
+
+$kubectl create -f service-defination.yaml  
+$kubectl get services
+
+ClusterIp:-
+A full stack application has different  kinds of PODs hosting different part of application like front-end,back-end,redis.What is the best way to establish connectivity
+between these services ? IPs could be used but problem is POD can go down anytime and IP will change.So we annot rely on IP address.K8 service can help to group POD
+together and provide single interface to access the PODS in a group.Example a service created for backend POD will group all BAckend PODs together and provide a single
+interface for other POD to access the service.The request are forwaded to one of the service randomly similarly create additional service for redis and allow the
+backend POD to access the redis system through the service.
+
+service-defination.yaml
+apiVersion: v1
+kind: Service
+metadata:
+   name: back-end
+
+spec:
+   type: ClusterIP
+   ports:
+    - targetPort: 80
+      port: 80
+
+   selector:
+      app: myapp
+      type: back-end
+
+$kubectl create -f service-defination.yaml
+$kubectl get services
+
+
+Note:-
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--dry-run: By default as soon as the command is run, the resource will be created. If you simply want to test your command , use the --dry-run option. This will not 
+create the resource, instead, tell you weather the resource can be created and if your command is right.
+
+-o yaml: This will output the resource definition in YAML format on screen.
+
+POD
+Create an NGINX Pod
+$kubectl run --generator=run-pod/v1 nginx --image=nginx
+
+
+Generate POD Manifest YAML file (-o yaml). Don't create it(--dry-run)
+$kubectl run --generator=run-pod/v1 nginx --image=nginx --dry-run -o yaml
+
+Deployment
+Create a deployment
+$kubectl create deployment --image=nginx nginx
+
+Generate Deployment YAML file (-o yaml). Don't create it(--dry-run)
+$kubectl create deployment --image=nginx nginx --dry-run -o yaml
+
+Generate Deployment YAML file (-o yaml). Don't create it(--dry-run) with 4 Replicas (--replicas=4)
+$kubectl run --generator=deployment/v1beta1 nginx --image=nginx --dry-run --replicas=4 -o yaml
+
+The usage --generator=deployment/v1beta1 is deprecated as of Kubernetes 1.16. The recommended way is to use the kubectl create option instead.
+
+IMPORTANT:
+kubectl create deployment does not have a --replicas option. You could first create it and then scale it using the kubectl scale command.
+Save it to a file - (If you need to modify or add some other details)
+kubectl run --generator=deployment/v1beta1 nginx --image=nginx --dry-run --replicas=4 -o yaml > nginx-deployment.yaml
+OR
+kubectl create deployment --image=nginx nginx --dry-run -o yaml > nginx-deployment.yaml
+You can then update the YAML file with the replicas or any other field before creating the deployment.
+
+
+
+Service
+Create a Service named redis-service of type ClusterIP to expose pod redis on port 6379
+
+kubectl expose pod redis --port=6379 --name redis-service --dry-run -o yaml
+(This will automatically use the pod's labels as selectors)
+
+Or
+kubectl create service clusterip redis --tcp=6379:6379 --dry-run -o yaml  
+(This will not use the pods labels as selectors, instead it will assume selectors as app=redis. You cannot pass in selectors as an option. So it does not work very
+ well if your pod has a different label set. So generate the file and modify the selectors before creating the service)
+
+
+
+Create a Service named nginx of type NodePort to expose pod nginx's port 80 on port 30080 on the nodes:
+kubectl expose pod nginx --port=80 --name nginx-service --dry-run -o yaml
+(This will automatically use the pod's labels as selectors, but you cannot specify the node port. You have to generate a definition file and then add the node port in 
+manually before creating the service with the pod.)
+Or
+kubectl create service nodeport nginx --tcp=80:80 --node-port=30080 --dry-run -o yaml
+(This will not use the pods labels as selectors)
+Both the above commands have their own challenges. While one of it cannot accept a selector the other cannot accept a node port. I would recommend going with 
+the `kubectl expose` command. If you need to specify a node port, generate a definition file using the same command and manually input the nodeport before creating 
+the service.
+
+
+Section 3 : Schedulling
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Manual Schedulling:-
+If you to schedule a pod manually.Pod-defination have a field called "nodeName" ,this field is not set by default.You dont tipically specify this field when you create
+a POD menifest file.K8 add this file automatically.Schedullar goes through all the POD and look for POD which dont have this property set.Those are candidates for 
+schedulling.Then it identifies the right node for the POD by running schedulling alorithm.Once identified it schedule the POD on the node by setting nodeName property to
+namenode.
+So if there is no schedular to monitor PODS the PODs continue to be in Pending state so here you can manually assign PODs to node yourself.Without schedular the simpletst 
+way is to set nameNode filed to name of node while creating POD.POD then assigned to specified node.
+
+
+Taints And Tolerations:-
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+You can restrict what PODs are placed on what Nodes.Taints And Tolerations have nothing to do with Security.Taints And Tolerations are used to set restrictions on what
+PODs can be schedule on a node.When PODs are created K8 schedular tries to place these PODs on available worker Nodes,considering there are no restrictions.
+Lets assume we have decicated resources on Node1 for perticular use case or application.We want only the PODs belongs to this application placed on Node1.
+For this we prevent Node1 with Taint called blue.By default POds have no Toleration which means unless specified otherwise none of POds can tolerate any Taints.So in 
+this case node of POds can be placed on Node1 as none can tolerate taint blue.Now we have to enable certain Pods to be placed on the Node1.FOr this we must specify
+which POds are tolerant to this perticular Taint.So now lets allow POd "D" to be placed on this Node,so we add toleration to Pod "D".
+
+Taint a Node:-
+$kubectl taint nodes node-name key=value:taint-effect
+taint-effect can be any of below 3.This effect defines what would happen to POD if they donot tolerate Taint.
+1. NoSchedule  ===> Means Pods will not be schedule on Nodes
+2. PreferNoSchedule ===> Means system will try to avoid place POD on Node but no Garuntee.
+3. NoExecute ===> Means new PODs will not be schedule on Node and existing PODs on NOde will be evicted if they donot tolerate Taint.Like incase before Tain applied 
+                  for Node.
+
+Example: $kubectl taint nodes node1 app=blue:NoSchedule
+
+Add tolerations to PODS:=
+$kubectl taint nodes node1 app= blue:NoSchedule  
+===> POD defination should be like below
+
+pod-defination.YAML
+apiVersion:
+kind: Pod
+metadata:
+ name: myapp-pod
+spec:
+  containers:
+  - name: nginx-conatiner
+    image: nginx
+
+  tolerations:
+  - key:"app"
+    operator:"Equal"
+    value:"blue"
+    effect:"NoSchedule"
+
+Note:- Taints And Tolerations doesnot tell POD to go to perticular NOde instead it tells Node to only accept PODs with certain tolerations.If your requirement is to 
+restrict a POD to certain NOde its achived to another concept NOde Affinity.
+
+Note:- K* does not schedule any POD on master Node even though its capable of.Why is that ? When K8 cluster is set a Taint is set on master Node automatically that
+prevents any PODS from being scheduled there.
+To see this Taint
+$kubectl describe node kubemaster | grep Taint
+
+
+Node Selctors:-
+COnsider you have node cluster with 3 nodes,One of the node is with high resources and other two are with less resources.You have different workloads running in your cluster.
+Now you want that Data processing workloads that require higher horsepower to the larger node as that is the only Node which will not run out of resources incase job 
+demands extra resources.But in current default setp any POD can go in any Node.
+For this we can set up a limitation in PODs to run only on perticular node.There are two ways to achieve this.
+1. Node Selectors {we we cannot provide advanced expression like AND OR in Node Selectors}
+2. 
+
+For Node selectors we have to label the nodes sung below format
+$kubectl label nodes <node-name> <label-key>=<label-value>
+$kubectl label nodes node-1 size=Large
+
+===> Now in pod-defination.yaml we habe to specify the Node
+
+pod-definition.yaml
+apiVersion:
+kind: Pod
+metadata:
+  name: myapp-pod
+spec:
+  containers:
+  - name: data-processor
+    image: data-processor
+  
+  nodeSelector:
+    size: Large
+
+$kubectl create -f pod-defination.yaml
+
+
+Node Affinity:-
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Primary feature of Node Affinity is to ensure PODs are hosted on perticular Nodes.
+
+pod-definition.yaml
+apiVersion:
+kind: Pod
+metadata:
+  name: myapp-pod
+spec:
+  containers:
+  - name: data-processor
+    image: data-processor
+  
+  affinity:
+   nodeAffinity:
+     requiredDuringSchedulingIgnoreDuringExecution:
+       nodeSelectorTerms:
+       - matchExpressions:
+          - key: size
+            operator: In        ===> In operator.here any value Large or Medium accepted to place PODs.Other Operators uses are "NotIn" etc
+            values:
+             - Large
+             - Medium
+
+Node Affinity Types:-
+1. requiredDuringSchedulingIgnoreDuringExecution 
+2. preferredDuringSchedulingIgnoreDuringExecution
+
+===> DuringScheduling is the state where POD does not exist and created for the first time.What if we dont have the Nodes with mentioned labels.Its has values 
+     "Required" and "Preffered".
+===> DuringExecution is a state where POD is running and change is made in enviroment that affects node affinity such as change in label of Node.
+     It has only Value "Ignored" which means PODs will continue to run for any changesAnd node affinity will not impact them once they are schedulled.
+
+
+Taints And Tolerations Vs Node Affinity
+------------------------------------------------------------------------------------------------------------------------------------------------------------------
+See vedio lecture 52
+
+
+Resource Requirements and Limits
+------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Every POD consumes a set of resources CPU,Memory and disk space.Whenever POD is placed on node it consumes resources of that Node.
+As we know K8 schedular decides which node a POD goes to.By default K8 assumes that a POD or conatiner within POD requires 0.5 CPU and 256 MB memory.You can 
+specify this in POD or conatiner deployment file.
+
+pod-definition.yaml
+apiVersion:
+kind: Pod
+metadata:
+  name: simple-webapp-color
+  Labels:
+    name: simple-webapp-color
+spec:
+  containers:
+  - name: simple-webapp-color
+    image: simple-webapp-color
+    ports:
+      - containerPort: 8080
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: 1
+      limts:
+        memory: "2Gi"
+        cpu: 2
+
+===> By default the POD doesnot have any restriction to use  CPU .However you can set the limit on PODs.Default limit is 1 CPU to be used from node and
+     512 MB for memory.If it tries to exceed limit for CPU it cluster throttle and make sure conatiner doesnot use cpu beyond its limit.But this is not the case with
+     memory container can use more memory than its limits.So if POD tries to consume more memory than its limit constantly POD will be terminated
+===> What happens when your POD tries to extend your Limits.You will error like Insufficient CPU.
+
+
+DeamonSets
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+DeamonSets are like Replicasets which helps to deploy multiple instances if PODs.But it runs one copy of PODs on each node in a cluster.Whenever a new node is added to
+cluster a replica of POD is added to that node.And when node is remove POD is removed automatically.DeamonSets ensures one copy of POD is always present in all nodes
+of cluster.This is hhelpful if you want to deploy monitoring agent on each node of cluster or a log viewer on each node.
+
+deamon-set-definition.yaml
+apiVersion: apps/v1
+kind: DeamonSet
+metadata:                       
+  name: monitoring-deamon
+spec:
+  selector:
+     matchLabels:
+       app: monitoring-agent
+  template:
+    metadata:
+      labels:
+        app: monitoring-agent
+    spec:
+      conatiners:
+      - name: monitoring-agent
+        image: monitoring-agent
+
+$kubectl create -f deamon-set-definition.yaml
+$kubectl get deamonsets
+$kubectl describe deamonsets monitoring-deamon
+
+
+
+Static PODS
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+We saw earlier that kublet relies on kube-API server for instructions on what PODs to load on its nodes.Which is based on decision made by kube scheduller which was
+stored in ETC datastore.But what if there was no kube-API server and no contoller,no ETC.What if there is no master at all.Here what kublet can do as a captian.
+
+Well here kublet can manage a node independantly,in ship we have kublet and docker installed.The one thing that kublet know to do is create PODS we dont have API-server
+to provide POD details.By now we know that to create a POD we need details of POD in POD defination file.But do you provide POD defination file to kubelet without
+kube-API server ?You can configure the kubelet to read the POD defination file from a directory in a server designated to store information about POD.This direcory is
+
+====> /etc/kubernetes/manfests
+====> The kublet periodically checks this directory,reads this file and creates PODs.It will also make sure PODs are alive.If you remove file from this directory POD
+      is deleted Automatically.
+====> Only PODs can be created this way not replicaset etc
+      $kubectl get pods   {This will also show the static PODs}
+
+
+     Static PODs                                 Deamons
+-------------------------------------------------------------------------------------------------------
+1. Created by kubelet                            1. Creatd by kube-API server {DeamonSet COntroller}
+2. Deploy COntrol Plan Components as             2. Deploy Monitoring agents,Logging agents and Nodes
+   Static Pods
+3. Ignored by kube scheduler                     3. Ignored by kube scheduler
+
+
+Multiple Schedulers
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+We have seen how default schedular works in K8 cluster.It have algorithm that distributes PODs across nodes evenly as well as it takes into conditions we specify 
+through Taints and Toleration,Node affinity etc.What if none of this satisfies your need,say you have specific application that requires its componets to be placed on
+nodes after performing some additional checks.You decide to have own schedulling alogithm to place PODs on Node,with own custom conditions and checks.
+K8 allows you to write your own Schedullar and deploy as default or as an additional schedullar.K8 cluster can have multiple schedular at same time.
+===> In pod-defination.yaml we have to specify this schedular under  "schedularName"
+
+
+
+Section 4 - Logging and Monitoring
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+===> You can have one Metric server in each K8 cluster.Metric server retrieves metrics from each of K8 nodes and PODs.Aggregate them and stores in memory.
+     Metric-server is only an in-Memory monitoring solution and doesnot store metrix on disk.As a result you cannot see historical performance data.K* runs 
+     an agent on each node know as Kubelet which is responsible for reciving instruction from K8 master server and running PODs on Nodes.The kublet also conatins a
+     component know as C-advisor.C-advisor is responsible for retrieving performance metrix from PODs and exposing them through kubelet API to make matric available 
+     through metric server.
+
+
+Section 5 - Application LifeCycle Management
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Rolling Updates and Rollback in Deployments:-
+
+RolleOut and versioning:-
+When you first create a deployment it triggers a rollout.A new rollout creates a new deployment revision say revision 1.When the application is updated a new version is
+rollout with revision 2.
+
+===>To check the staus of deployment
+    $kubectl rollout status deployment/myapp-deployment
+===>To check history of deployments
+    $kubectl rollout history deployment/myapp-deployment
+
+Deployment Strategy :-
+Say if you have 5 replias of web-application instance deployed.One way to upgrade this to new version is to destroy all of these and then create newer version of the
+application instances.Meaning first destrop the 5 instances and then deploy the 5 new versions of the application.But this has application downtime.This is called
+Recreate statergy and this is not the default deployment statergy.
+===> In second type of statergy we donot  destroy all instance at a time.Instead we take down the older version and bring up a newer version one by one.This way the
+     application never goes down and upgrade is seamless.This is Rolling update stategy.This is default deployment statergy.
+
+
+Deployment COmmands
+--------------------------------------------------------------------------------
+Create                     $kubectl create -f deployment-defination.yaml
+
+get                        $kubectl get deployments
+
+Update                     $kubectl apply -f deployments-defination.yaml
+                           $kubectl set image deployment/myapp-deployment nginx=nginx:1.9.1
+
+Status                     $kubectl rollout status deployment/myapp-deployment
+                           $kubectl rollout history deployment/myapp-deployment
+
+Rollback                   $Kubectl rollout undo deployment/myapp-deployment
+ 
+
+
+Commands and Arguments in POD defination file:-
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+===> When you run $docker run ubuntu command,it runs instance of Ubuntu image and Exits immidieatly.If you see running container using $docker ps you wont see the 
+     container running.If you see $docker ps -a you will see the stopped conatiner in exited state.But why is so? Unlike virtual machine container are not ment to 
+     host OS they are ment to run a specific task/process such as to host instsnce of webserver/dB etc Once the task is complete conatiner exits.COntainer only live 
+     as long as the process inside it alive.If webservice inside conatiner stops or crashes the container exits.So who defines what process is run within the conatiner.
+     In dockerfile you will CMD command this defines the program that will run when the consyainer starts.
+
+===> $docker run ubuntu [COMMAND]
+     $docker run ubuntu sleep 5
+     With above command when container starts it wait for 5 seconds before it exits.Now how do we make that change permanent?Say you want to run sleep command always
+     when the container starts.Here is the below way to do it
+     
+     FROM Ubuntu
+     CMD sleep 5 or CMD["sleep","5"]
+  
+     $docker build -t ubuntu-sleeper .
+     $docker run ubuntu-sleeper
+
+===> Above sleep command also works with ENTRYPOINT statement
+      
+     FROM Ubuntu
+     ENTRYPOINT["sleep"]
+    
+     $docker run ubuntu-sleeper 10   {If you dont specify seconds here you will get error operand is missing}
+      
+     ===> But if you want to configure default time then you have to use both CMD and ENTRYPOINT.
+          FROM Ubuntu
+ 
+          ENTRYPOINT["sleep"]
+
+          CMD["5"]
+
+          $docker run ubuntu-sleeper 10          {If you dont specify seconds here it will take 5 seconds}
+          $docker run --name ubuntu-sleeper \    {To avoid the ENTRYPOINT}
+                      --entrypoint sleep2.0  
+                       ubuntu-sleeper 10
+
+===> pod-definition.yaml
+     apiversion: vi
+     kind: Pod
+     metadata:
+       name: ubuntu-sleeper-pod
+     spec:
+       conatiners:
+         - name: ubuntu-sleeper
+           image: ubuntu-sleeper
+           args: ["10"]              {sleep time}
+
+     $kubectl create -f pod-definition.yaml
+
+
+Enviroment variables in Kubernetes:-
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+$docker run -e APP_COLOR=pink simple-webapp-color
+
+===> Way to specify enviroment variable in yaml file
+
+pod-definition.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: simple-webapp-color
+spec:
+  containers:
+  - name: simple-webapp-color
+    image: simple-webapp-color
+    ports:
+      - containerPort: 8080
+    env:
+      - name: APP_COLOR
+        value: pink
+
+===> The other ways to specify enviroment are 
+     1. Plain key Value 
+     2. ConfigMap
+     3. Secrets
+
+     env:
+      - name: APP_COLOR
+        valueFrom:
+           ConfigMapKeyRef:	
+
+       OR
+     env:
+      - name: APP_COLOR
+        valueFrom:
+           secretKeyRef:	
+
+
+
+Configuring ConfigMaps in Applications:-
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ConfigMaps are used to pass Configuration data in the form of key value pairs in K8.When POD is created inject the config map in the table so the Key value pair is 
+available as enviroment variable for the application hosted inside the container in POD.There are two phases involved in configuring Maps
+1. Create COnfigMap
+2. Inject Them in POD
+
+===> Now there are two ways to create configMaps imerative way and declarative way where we provide configMap defination file.
+     Imperative way:- $kubectl create configmap 
+                            <config-name> --from-literal=<key>=<value>
+
+                      $kubectl create configmap  \ 
+                            app-config --from-literal=APP_COLOR=blue  \
+                                       --from-literal=APP_MOD=prod
+ 
+     Declarative way:-
+           config-map.yaml
+           apiVersion: v1
+           kind: CnfigMap
+           metadata:
+             name: app-config
+           data:
+             APP_COLOR: blue
+             APP_MODE: prod
+        $kubectl create -f config-map.yaml
+
+===> To view cnfigMaps
+     $kubectl get configmaps
+
+==>> ConfigMap in Pods to inject
+  
+pod-definition.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: simple-webapp-color
+  labels:
+  name: simple-webapp-color
+spec:
+  containers:
+  - name: simple-webapp-color
+    image: simple-webapp-color
+    ports:
+      - containerPort: 8080
+    envFrom:
+       configMapref:
+           name: app-config        {this iss take config Map}
+      
+
+
+Configure Secrets in Applications
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Here also two ways to specify the secrets Imperative way and Declarative way
+1. Imperative way
+   $kubectl create secret generic 
+                    <secret-name> --from-literal=<key>=<value>
+
+   $kubectl create secret generic \
+               app-secret --from-literal=DB_Hosts=mysl   \
+                          --from-literal=DB_user=root
+
+2. Declarative way
+
+secret-data.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-data
+data:
+  DB_Host: mysql
+  DB_User: root
+  DB_Password: B#c#
+
+  $kubectl create -f secret-data.yaml
+
+  $kubectl get secrets
+  $kubectl describe secrets
+  $kubectl get secrets app-secret -o yaml
+
+
+===> Pod defination for secret goes below
+
+pod-definition.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: simple-webapp-color
+  labels:
+  name: simple-webapp-color
+spec:
+  containers:
+  - name: simple-webapp-color
+    image: simple-webapp-color
+    ports:
+      - containerPort: 8080
+    envFrom:
+      - secretRef:
+           name: app-secret
+
+
+InitContainers
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+In a multi-container pod, each container is expected to run a process that stays alive as long as the POD's lifecycle. For example in the multi-container pod that we 
+talked about earlier that has a web application and logging agent, both the containers are expected to stay alive at all times. The process running in the log agent 
+container is expected to stay alive as long as the web application is running. If any of them fails, the POD restarts.
+                      But at times you may want to run a process that runs to completion in a container. For example a process that pulls a code or binary from a 
+repository that will be used by the main web application. That is a task that will be run only  one time when the pod is first created. Or a process that waits  for 
+an external service or database to be up before the actual application starts. That's where initContainers comes in.
+
+An initContainer is configured in a pod like all other containers, except that it is specified inside a initContainers section,  like this:
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp-pod
+  labels:
+    app: myapp
+spec:
+  containers:
+  - name: myapp-container
+    image: busybox:1.28
+    command: ['sh', '-c', 'echo The app is running! && sleep 3600']
+  initContainers:
+  - name: init-myservice
+    image: busybox
+
+When a POD is first created the initContainer is run, and the process in the initContainer must run to a completion before the real container hosting the application 
+starts. 
+
+You can configure multiple such initContainers as well, like how we did for multi-pod containers. In that case each init container is run one at a time in sequential
+order.
+
+If any of the initContainers fail to complete, Kubernetes restarts the Pod repeatedly until the Init Container succeeds
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp-pod
+  labels:
+    app: myapp
+spec:
+  containers:
+  - name: myapp-container
+    image: busybox:1.28
+    command: ['sh', '-c', 'echo The app is running! && sleep 3600']
+  initContainers:
+  - name: init-myservice
+    image: busybox:1.28
+    command: ['sh', '-c', 'until nslookup myservice; do echo waiting for myservice; sleep 2; done;']
+  - name: init-mydb
+    image: busybox:1.28
+    command: ['sh', '-c', 'until nslookup mydb; do echo waiting for mydb; sleep 2; done;']
+
+
+
+Self Healing Applications
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Kubernetes supports self-healing applications through ReplicaSets and Replication Controllers. The replication controller helps in ensuring that a POD is re-created 
+automatically when the application within the POD crashes. It helps in ensuring enough replicas of the application are running at all times.
+     Kubernetes provides additional support to check the health of applications running within PODs and take necessary actions through Liveness and Readiness Probes. 
+However these are not required for the CKA exam and as such they are not covered here. These are topics for the Certified Kubernetes Application Developers (CKAD) 
+exam and are covered in the CKAD course.
+
+
+Section 6 : Cluster Maintanence
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+OS Upgrade
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+You have clluster with few nodes and PODs serving application what happens when one of these nodes goes down ? Pods on them wont be accessible depending upon how you
+deployed those PODs your users maybe impacted.For example if you have multiple relicas of blue POD the users accessing blue application are not impacted as they are
+servered through other blue POD which is online.However user acessing green POD are impacted as that only node where green POd application was running.
+      Here if the node comeback online then the kubelet process starts and PODs also comes online.However if the node is down for more than 5 mins, then the PODs are
+terminated from that Node.K8 considers them as dead.If PODsare part of replicasets then they are created at other nodes.The time it waits for POD to come back online 
+is know as POD eviction timeout and is set on controller manegar on 5 mins.So whenever a node goes offile the master node wait for 5 mins before considering the node as
+dead.When node come online after POD eviction timeout it comesup blank without any PODs.But as blue POD was part of replicaset it was created on another node however 
+the green POD was not part of replicaset its just gone.
+===> So here if you have any maintanance work you can purposefully drain the Node of all workloads.So that workload moved to other node on the cluster.TEchnically they
+     are not moved when you drain a node the PODs are gracefullt terminated from the node they are on and recreated on another.The node is also marked as unschedullable
+     meaning no PODs can be schedulled on this node untill you specifically remove the restriction.Now the PODs are safe on other node you can reboot the first node.
+     When it come back online its still unschedullable you then need to unquarantine so that PODs can be schedull again.
+
+$kubectl drain node-1
+$kubectl uncordon node-1
+$kubectl cordon node-1    {makes node unschedullable}
+
+
+
+===> If kubernetes version is v1.11.3,then
+     1  - major
+     11 - minor  {functionalities}
+     3  - patch  {bug fixes)
+
+
+Cluster Upgrade Process
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+===> Since the kube-apiserver is the primary component in the control plane and that is the component that all other components talk to none of the other components 
+     should ever be at higher version than kube-apiserver.Controller maneger and schedullar can be at one version lower so if kube-api server is at x version then
+     Controller maneger and schedullar can be at x-1 and kublet,kube-proxy can be at two version lower i.e x-2.This is not the case with kube control (kubectl)
+     It could be at version higher than api-sever or at same level or at lower version.
+
+   
+                            kube-apiserver
+                               X v1.10
+
+                   Controlle-manager          kube-schedullar                         kubectl
+                     X-1                           X-1
+                   v1.9 or v1.10              v.19 or v1.10
+
+
+                    kubelet                    kube-proxy
+                    X-2                          X-2
+                v1.8 or v1.9 or v1.10          v1.8 or v1.9 or v1.10
+
+===> At any point k8's supports upto recent 3 minor versions so with v1.12 being the latest release k8 will support v1.12,v1.11,v1.10.So when v1.13 is release v1.10 is
+     unsupported.Recommended to upgrade is to update one minor version at a time.
+
+===> Suppose you have cluster with a master Node and 3 worker Nodes.All at version v1.10.First you upgrade your master node then update worker nodes.While the master
+     being updated componets such as api-server,schedullar and controller maneger go down briefly.Master going down does not mean that worker and application running
+     in cluster are impacted all workload hosted on worker nodes continue to serve users as normal since master is down all management functions are down.You cannot
+     access cluster using kubecontrl or other K8 api.You cannot modify existing application.Controller Manager wont function either.Once upgrade is finished on master
+     it will be up with v1.11 and worker still at v1.10.
+===> Now there are different statergies availabe to upgrade the worker nodes.
+     1. Update all worker node at once.  {Pods wil be down and users cannot access application}
+     2. Update one Node at a time.
+     3. Add new Nodes to cluster.Nodes with newer version.Here we move workloads to new version and then remove the old node.
+===> Kubeadm upgrade command will help to update.Make sure to update kubeadm tool itself before we update cluster.
+     $kubeadm upgrade plan
+
+     $apt-get upgrade -y kubeadm=1.12.0-00
+     $kubeadm upgrade apply v1.12.0
+
+     ====> Node upgrade
+           $kubectl drain node-1
+           $apt-get upgrade -y kubeadm=1.12.0-00
+           $apt-get upgrade -y kubelet=1.12.0-00
+           $kubeadm upgrade node config --kubelet-version v1.12.0
+           $systemctl restart kubelet
+
+
+Backup and restore Methodlogies
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------
+We know that ETCD cluster where all cluster related information is stored.IF cluster is created with persistent volumes then this is another candidate for backup.
+Check Lecture 106
+
+
+
+
+Section 7 : Security
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+As we have seen kube-apiserver is at the centre of K8s we interact with it through kube-control utility or by accessing API directly n through that you can perform any
+operation on the cluster.So this is first line of defence controlling access to kube-api server.We have to make two type of decision who can access the server and what
+can they do ?
+===> Who can Access ?   ---> Authentication mechanism  {Using uname/password,Certifcates,External Authentication provider LDAP,Service Accounts}
+     What can they do ? ---> Authorization mechanis    {Role based access control RBAC,ABAC,Node Authorization,Webhook Mode}
+===> What about communication within the cluster.By default all PODs can access all other PODs within the cluster.You can restric access between them using network
+     policies.
+
+
+Authentication
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+There are Admins,devlopers,End Users,3rd party tool like Bots accessing K8s cluster.Here security of End Users is managed by application internally,so they are out of
+our discusion.So we are left with two type of users    1. Users {Admin,Devlopers}   2. Service accounts {Bots}
+===>> All user access is managed by kube-APIserver whether you are accessing through kubecontrol tool or API directly.kube-APIserver authenticate all the request.
+      How kube-apiserver authenticate ? There are different Authentication mechanism can be configured.
+      1. We can have a list of username and password in static password file or in static token file or you can authenticate using Certificates OR identity services
+         like LDAP,kurborose etc
+===>> Create a list of users and password in a csv file ans use that as source for information.File has three columns password,username and userid.We can pass the file
+      name to kube-apiserver.
+      -basic-auth-file=user-details.csv
+===>> In static token file provide token instead of password.
+
+
+
+TLS Certificates:
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+===>> Certificate is used to garuntee trust between two parties during a transaction.For example when user tries to access a webserver TLS certificate ensures that the
+      communication between the user and server is encrypted.For example without security a user tries to access his online banking aplication the credentials he is
+      using will be sent in plain text format.Hacker can easily hack this.So we must encrypt the data we transfer using encryption keys.Data is encrypted using a key
+      which is a set of random number and alphabets.However the server also cannot decrypt the data without key a copy of key must also be sent to server so that the
+      server can decrypt the key and read message.Since the key is sent over same network attacker can sniff that as well and decrypt data with it.This is know as the
+      symmetric encryption.Its secure way of encryption but since it uses the same key to encrypt and decrypt the data and since the key has to be exchanged between the
+      server and reciever these is chance of harker getting this key and decrypting data.And this is why Asymmetric encryption came in picture.
+
+===>> Instead of using a single key to encrypt and decrypt data Asymmetric encryption uses a pair of keys a Private key and Public key{lock}.A key is only with me hence
+      its private and a lock which anyone can access so its public.If you encrypt the data with public lock it can only be accesses from private key.So key must be 
+      secured with you and not shared with anyone else.Lock is public so it can be shared with anyone but they can only lock with it,to unloack it must have private key.
+
+===>> Now suppose you want to communicate with a server.You have created a public and private key.This can be done using "ssh-keygen" command which created two files
+      {id_rsa {private key},id_rsa.pub {public key}}.You then secure the server by locking all doors for its access except the door which is loacked using your public lock.
+      Its usually done by adding public key in servers ~/.ssh/authorized_keys file.So as the lock is public anyone can gain access but noone can break as they font hv
+      your private key.When you try to SSH you will specify location of private key in SSH command.What if you have other servers in enviroment ? how do you secure them?
+      Well you can create copy of private lock and place them on many servers as you want and can use the same private key to SSH into all servers securely.
+ 
+      What if other users need access to your servers well they can generate their own public and private key pair.Then you will have to create additional door for them
+      on server with their public lock and copy their public lock on all servers.Now the users can also SSH using their private keys.
+
+===>> Now lets go back to our webserver example.The problem we had earlier with symmetric encryption was that the key used to send data have to be sent over the 
+      network along with the encrypted data,so hacker can steal it.What if we could somehow get the key to the server safely then they will be able to communicate with using the
+      symmetric encryption.To securely transfer the key from client to server we use asymmetric encryption.SO we generate public and private key in server.SSH-keygen
+      command was used earlier to create a pair of public and private keys.But here we use "openssl" command to generate public n private key pair.When user first access
+      the webserver using HTTPS he gets the public key from server lets assume hacker to gets this public key.Now users browser encrypts symmetric key using the public
+      key provided by server.Symmetric key is now secure.User then sends this to server.Hacker also gets copy.Server then uses private key to decrypt the message and 
+      retrieve symmetric key from it.However hacker doesnot have privte key to decrypt message.
+      Symmetric key is now only aviale to user ans server.They can now use symmetric key to encrypt data and send to each other.
+
+===>> With asymmetic encryption we have successfully transffered the symmetric keys from user server and with symmetric encryption we have secured all future communication
+      between them.
+
+===>> Now hacker finding new ways to hack.He realizes the only way he can get your credentials is by getting you to type into a form he presents.So he created website
+      taht exactly looks like your banks website.He host website on its own server.And he want you to think its secure so it generates his own set of public and private
+      keys.Then he somehow manages to tweak your network so that the request going to your banks websites will now goto his servers.
+      When you login you will see a same login page as your bank.So you go ahead and type your username and password.You browser recieves a key and then you send a 
+      encrypted symmetric key and then you send your credentials encrypted with the key and reciever decrypts credentails with same symmetric key.You have been 
+      communicated securely but with hackers server.As soon as you send credentials it will show you dashboard which doesnot look like your banks dashboard.
+                  What if you could look at the key from server and verify that its legitimate key from real bank server.When the server sends a key it doesnot only 
+      send the key it send along a certificate which has key in it.If you take closer look at certificate it looks like actual certificate but in a digital format.
+      It has info about who the certificate issued to,public key of that server etc.But here problem is anyone can create a certificate,you can generate one for 
+      yourself saying you are Google.And that waht the hacker did in this case.He generated a certificate saying he is your banks website.So how do you look at the 
+      certificate and verify its legit.This is where most important part of certificate come in.Who sign and issued certificate ?? If you generated a certificate 
+      then you will have to signed it by yourself.This is self signed certificate.Anyone looking at the certificate will immidiately know that its signed by you and a
+      safe certificate.Your browser can verify these certificates.All of the browsers are builtin with certificate validation mechanism,where it checks the 
+      certificate recieved from server and validates it to make sure its legitimate.If it identifies to be a fake certificate then it warns you.
+                SO how do you create a legitimate certificate for your server that web browsers will trust ?? How do you get your certificate signed by authority.
+      That where certificate Authority (CA) come in.They are well know organization that can sign and validates certificates for you.SOme of the popular ones are  
+      symantec,digicerts,commoda,google etc.The way this works is you generate a certificate signin request or CSR using the key you generated earlier and the domain
+      name of your website (using openssl command).This generates a mybank.csr file which is certificate signin request which should be sent to CA for signin.
+      The CA verifys the details and once it checks out a signed certificate and send it back to you.You now have a certificate signed by CA that browser trust.
+      If hacker tried to get his certificate signed in same way he would  fail during validation phase and his certificate would be rejected by CA.CA use different 
+      tachniques to make sure your are actual owner of that domain.
+                              You now have certificate signed by CA which browser trust.But how do the browser know the CA itself was legitimate.FOr example what if the
+      certificate was signed by fake CA.Suppose if certificate was signed by symantic how browser knows its really signed by symantec not someone who says they are 
+      symantec.The CA themselves have set of public and private key pairs.CA used their private key to sign the certificates.The public keys of all CA are builtin to the
+      browsers,the browser uses public key of CA to validate that the certificate was actully signed by the CA themselves.You can see then in settings of web browser
+      under certificates under trusted CA's tab.
+                             Now these are public CA that help us visit public website like bank,email etc.However they dont validate sites hosted privately say within
+      your organization for example accing payroll or internal applications.For that you can host your own private CAs.Most of these companies listed here have the 
+      private offering of their services.A CA server that you can deploy internally within your company.Then you can have public key  of your internal CA server 
+      installed on all your employee browser and establish secure connectivity within your organization.
+
+===>> Lets summerize.We have seen why we need to encrypt messages sent over network.To encrypt messages we use asymmetric encryption with pair of public and private key.
+      And admin uses a pair of keys to secure SSH connectivity to servers.The server uses pair of keys to secure HTTPS traffic but for this server first sends a
+      signIn request to CA.The CA uses a private key to sign the CSR.Remember all users have a copy of CS public key.The signed certificate is then send back to the 
+      server.Server configure web application with signed certificates.Wehnever a user access web application the server first sents the certificate with public key.
+      The user or rather the users browser  feeds the certificate and uses CA public key to validate and retrive the servers public key.It then generates a symmetric 
+      key which is used going forward for all communication.The symmetric is encrypted using the servers public key and sent back to the server.Server uses its private
+      key to decrypt the message and retrive the symmetric key.Symettic key is used for communication going forward.
+                            So the Admin generates a key-pair for securing SSH,web server generates Key-pair for securing websites with HTTPS,the CA generates its own
+      set of key-pair to sign certificates.End user though only generates a single symmetric key.Once he establishes trust with website he uses uname n passwd to 
+      authenticate to server.With servers key pair client was able to validate the server is who they say they are.But server doesnot for sure know is the client is who
+      they say they are.It could be hacker imporsonationg user by somehow gaining access.SO what can server do to validate client to know who they say they are.
+      For this as part of initial trust building exercise,the server can request a certificate from client and so the client must generate a pair of keys and a signed
+      certificate from a valid CA.Client then send the certificate to server for it to verify the client is who they say they are.
+                            You must be thinking you have never generated a client certificate to access a website,well that bcoz TLS client certificate are not 
+      generally imlemented on web servers even if they are it all implemented under the hoods.So a normal user dont have to generate and manage certificates manually.
+
+===>> These all componets is know as Public key infrastructure (PKI).We have been using analogy of private and public key(lock).If i given you impression that only the
+      lock or public key can encrypt data then please forgive me as it not true.You can encrypt data with any one of them and only decrypt data with another.
+      You cannot encrypt data with one and decrypt with the same.If you encrypt data with private key then remember anyone with your public key can decrypt.
+
+===>> Usually certificates with public key are named with *.crt/*.pem extension.
+      Usually certificates with private key are named with .key OR -key.pem.Private key have work key in them either as an extension or name of certificate.
+
+
+
+TLS in Kubernetes
+=======================================================================================================================================================================
+===>> In last session we talked out 3 types of certificates
+      1. Server certificates  (on server)
+      2. Client certificates  (on client)
+      3. Root certificates    (CA)
+===>> K8 cluster consists of Master and Worker Nodes.Offcourse all communication between these nodes needs to be secured and must be encrypted.So here all server in the
+      clluster should use server certificates and all clients should use client certificates.
+===>> Lets start with KUBE-API server as we know already the API server exposes HTTPS service that other componets as well as external services use to manage K8 cluster.
+      So its a server and it requires certificate to secure all communication with its clients.So we generate a certificate and key-pair we call it appiserver.crt and
+      apiserver.key.
+===>> Another server in the cluster is ETCD server,so it has pair of certificate and key (etcdserver.crt and etcdserver.key).
+===>> Other server on clluster is on Worker node that are kublet services.It also expose HTTPS api so it has pair of certificate and key {kubelet.crt n kubelet.key}
+===>> Now the clients who access KUBE-API server are us the  admins through kubecontrol or Rest API.Admin users require pair of key-pair n certificate to authenticate 
+      KUBE-API server.We will call it admin.crt and admin.key.
+===>> Schedular talks to KUBE-API server to look for PODS that required schedulling and then get API server to schedule the POD on right worker node.The schedular is a
+      client that access KUBE-API server as far as KUBE-API server is concern this schedullar is just another client like Admin users.So schedular Needs to validate 
+      its identity using a client TLS certificate.So it needs it own pair of certificates and keys {schedular.cert n schedular.key}
+===>> Kube controller manager is another client that access KUBE-API server so it also requires certificate for auhentication to KUBE-API server so we create a
+      certificate pair for it {controller-manager.crt n controller-manager.key}
+===>> The last client is the kube-proxy,kube-proxy requires a client certificate to authenticate to the kube-api server so it requires own pair of certificate n key.
+      {kube-proxy.crt n kube-proxy.key}
+===>> The server communicates among them as well for example Kube-API server communicates with ETCD server.In fact of all the components Kube-API server is the only 
+      server that talks to ETCD server.So as far as ETCD server is concerned the KUBE-API server is client,so it needs to authenticate.The KUBE-API server can use the
+      same keys that it used earlier for serving its own API service  appiserver.crt and apiserver.key OR you can generate a new pair of certificate specifically 
+     specifically for KUBE-API to authenticate ETCD server.Kube-API server also talks to KUBLET server on each of individual nodes for this it can use the earlier
+     cert/key or can generate new one spcifically for this.
+===>>There are two many certficates lets group them.A set of client certificates used by client to communicate to server and a set of server certificate used by
+     KUBE-API,ETCD,KUBLET to authenticate their client.
+===>> Now to generate these certificate we need atleast one CA for cluster.As CA has also their own pair of key {ca.crt n ca.key} 
+
+
+Certificate Creation
+=====================================================================================================================================================================
+===>> To generate certificate for cluster there are different tools available such as EASYRSA,OPENSSL,CFSSL.We will use OPENSSL too to generate certificate.
+===>> First we create CA certificate.We will create private key using OPENSSL command.
+     Generate key                ----> $openssl genrsa -out ca.key 2048
+                                       ca.key
+
+     Certificate Signing Request ----> $openssl req -new -key ca.key -subj "/CN=KUBERNETES-CA" -out ca
+                                        ca.csr
+
+     Sign Certificate           -----> $openssl x509 -req -in ca.csr -signkey ca.key -out ca.crt
+                                       ca.crt
+
+===>> Generating client Certificate
+      Admin Users 
+      Generate key    (Admin key)----> $openssl genrsa -out admin.key 2048
+                                        admin.key
+
+     Certificate Signing Request ----> $openssl req -new -key admin.key -subj "/CN=kube-admin" -out admin.csr
+                                        admin.csr
+
+     Sign Certificate           -----> $openssl x509 -req -in admin.csr -CA ca.crt -CAkey ca.key -out admin.crt           {as signing certificate with CA key pair that will make a valid certificate in cluster} 
+                                       admin.crt       
+
+     ===> signed certificate is then output to admin.crt file that is the certificate admin user will use to authenticate to K8 cluster.      
+      
+
+
+Next:110
+
