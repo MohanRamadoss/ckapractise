@@ -167,3 +167,20 @@ root@k8master-1:~#
 
 
 
+
+[root@master ~]# kubectl taint nodes node1.rmohan.com key:NoSchedule
+node/node1.rmohan.com tainted
+[root@master ~]# kubectl get node -o custom-columns=NAME:.metadata.name,TAINT:.spec.taints[*].effect | grep -v NoSchedule
+NAME                TAINT
+node2.rmohan.com    <none>
+node3.rmohan.com    <none>
+[root@master ~]# kubectl get node -o custom-columns=NAME:.metadata.name,TAINT:.spec.taints[*].effect | grep  NoSchedule
+master.rmohan.com   NoSchedule
+node1.rmohan.com    NoSchedule
+[root@master ~]# kubectl taint nodes node1.rmohan.com key:NoSchedule-
+node/node1.rmohan.com untainted
+[root@master ~]# kubectl get node -o custom-columns=NAME:.metadata.name,TAINT:.spec.taints[*].effect | grep  NoSchedule
+master.rmohan.com   NoSchedule
+[root@master ~]#
+
+
