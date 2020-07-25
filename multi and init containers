@@ -269,7 +269,7 @@ spec:
   initContainers:
   - image: busybox:1.28
     name: bb
-    command: ['sh','-c','mkdir /workdata/test; echo sometestpraveen > /workdata/test/abcd']
+    command: ['sh','-c','mkdir /workdata/test; echo sometestmohan > /workdata/test/abcd']
     volumeMounts:
     - mountPath: /workdata
       name: foo
