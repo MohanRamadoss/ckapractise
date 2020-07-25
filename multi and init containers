@@ -254,7 +254,7 @@ spec:
     name: red-container
     
     we can echo some text with below
-    command: ['sh', '-c', 'echo praveen how are you!!!! && sleep 20']
+    command: ['sh', '-c', 'echo mohan how are you!!!! && sleep 20']
     
 2. Init container creates a directory and a file. Main container checks for the existance of file and if file exists sleep and if not there it should exit
 
