@@ -90,3 +90,26 @@ echo "source <(kubectl completion bash)" >> ~/.bashrc # add autocomplete permane
 
 alias k=kubectl
 complete -F __start_kubectl k
+
+
+kubectl label nodes node1 room=103
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+  labels:
+    env: test
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    imagePullPolicy: IfNotPresent
+  nodeSelector:
+    room: "103"
+    
+    
+ kubectl apply -f pod.yaml
+ 
+ 
+
