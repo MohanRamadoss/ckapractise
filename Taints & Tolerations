@@ -63,3 +63,107 @@ node/master untainted
 master $ kubectl describe node master | grep -i taint
 Taints:             <none>
 master $
+
+
+
+
+how to 
+
+kubectl taint node node1 per=police
+kubectl taint node node1 per=police:NoSchedule
+kubectl taint node node2 type=army:NoExecute
+
+to remove taint 
+kubectl taint node node2 type=army:NoExecute-
+
+kubectl describe node master |grep -i taint
+
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kubeserve
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: kubeserve
+  template:
+    metadata:
+      name: kubeserve
+      labels:
+        app: kubeserve
+    spec:
+      tolerations:
+        - key: covid
+          operator: "Equals"
+          value: "true"
+          effect: "NoSchedule"
+      containers:
+      - image: leaddevops/kubeserve:v1
+        name: app
+
+
+
+
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    ports:
+      - containerPort: 80
+  tolerations:
+  #- key: env
+  #  operator: "Exists"
+  #  effect: "NoExecute"
+   - key: person
+     operator: "Equal"
+     value: police 
+     effect: "NoSchedule"
+
+
+#    operator: "Exists"/"Equal"
+#    effect: "NoSchedule"/"PreferNoSchedule"/"NoExecute"
+
+
+
+kubectl taint node k8node2 type=army:NoExecute
+  vi pod2.yaml
+
+
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: tol-pod2
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    ports:
+      - containerPort: 80
+  tolerations:
+          #  - key: per
+#    operator: "Exists"
+#    effect: "NoExecute"
+   - key: type
+     operator: "Equal"
+     value: army
+     effect: "NoExecute"
+
+
+kubectl create -f pod2.yaml
+
+root@k8master-1:~# kubectl get pod -o wide
+NAME       READY   STATUS    RESTARTS   AGE   IP                NODE      NOMINATED NODE   READINESS GATES
+tol-pod2   1/1     Running   0          62s   192.168.184.154   k8node2   <none>           <none>
+root@k8master-1:~#
+
+
+
