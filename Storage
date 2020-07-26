@@ -41,6 +41,30 @@ spec:
 
 
 
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+  labels:
+     tier: frontend
+spec:
+  containers:
+   - name: nginx
+     image: nginx
+     ports:
+      - containerPort: 80
+     volumeMounts:
+       - name: nginx-vol
+         mountPath: /usr/share/nginx/html/
+  volumes:
+   - name: nginx-vol
+     emptyDir: {}
+     
+     
+     
+
+
+
   kubectl create -f https://raw.githubusercontent.com/lerndevops/educka/master/storage/vol-emptyDir-ex2.yml
   kubectl get pod
   kubectl describe pod myvolumes-pod
