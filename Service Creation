@@ -68,6 +68,30 @@ kubectl expose deployment nginx --port=80 --target-port=80  --type=LoadBalancer 
 kubectl expose deployment nginx --port=80 --target-port=80  --type=LoadBalancer -o yaml -dry-run=client
 kubectl expose deployment nginx --port=80 --target-port=80  --type=LoadBalancer -o yaml --dry-run=client
 kubectl create -f https://raw.githubusercontent.com/lerndevops/educka/master/controllers/deployment-ex1.yml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mydeployment
+  labels:
+    app: myapp
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: myapp
+  template:
+    metadata:
+      labels:
+        app: myapp
+    spec:
+      containers:
+      - name: myapp-cont
+        image: lerndevops/samplepyapp:v1
+        ports:
+        - containerPort: 3000
+
+
 kubectl expose deployment mydeployment  --port=80 --target-port=80  --type=LoadBalancer -o yaml --dry-run=client
 kubectl expose deployment mydeployment  --port=80 --target-port=80  --type=LoadBalancer
 kubectl get svc
