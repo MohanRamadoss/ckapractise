@@ -43,4 +43,37 @@ master $
    
    
    
+
+svc 
+
+create google cloud cluster 
+
+gcloud beta container --project "mohancloud" clusters create "mohank8cluster" --zone "asia-northeast1-a" --no-enable-basic-auth --cluster-version "1.16.12-gke.3" --machine-type "e2-medium" --image-type "UBUNTU" --disk-type "pd-standard" --disk-size "100" --metadata disable-legacy-endpoints=true --scopes "https://www.googleapis.com/auth/devstorage.read_only","https://www.googleapis.com/auth/logging.write","https://www.googleapis.com/auth/monitoring","https://www.googleapis.com/auth/servicecontrol","https://www.googleapis.com/auth/service.management.readonly","https://www.googleapis.com/auth/trace.append" --num-nodes "3" --enable-stackdriver-kubernetes --enable-ip-alias --network "projects/mohancloud/global/networks/default" --subnetwork "projects/mohancloud/regions/asia-northeast1/subnetworks/default" --default-max-pods-per-node "110" --enable-autoscaling --min-nodes "0" --max-nodes "3" --no-enable-master-authorized-networks --addons HorizontalPodAutoscaling,HttpLoadBalancing,Istio,GcePersistentDiskCsiDriver --istio-config auth=MTLS_PERMISSIVE --enable-autoupgrade --enable-autorepair --max-surge-upgrade 1 --max-unavailable-upgrade 0
+
+
   
+gcloud container clusters get-credentials myk8cluster --zone asia-northeast1-a --project mohancloud
+kubectl get pod
+kubectl get node
+kubectl run nginx --image=nginx --port=80 --restart=Never
+kubectl create deployment nginx --image=nginx
+kubectl edit deploy nginx
+kubectl get pod
+kubectl get pod -o wide
+kubectl create svc
+kubectl expose --help
+kubectl expose deployment nginx --port=80 --target-port=80  --type=LoadBalancer
+kubectl get svc
+kubectl expose deployment nginx --port=80 --target-port=80  --type=LoadBalancer -0 yaml -dry-run=client
+kubectl expose deployment nginx --port=80 --target-port=80  --type=LoadBalancer -o yaml -dry-run=client
+kubectl expose deployment nginx --port=80 --target-port=80  --type=LoadBalancer -o yaml --dry-run=client
+kubectl create -f https://raw.githubusercontent.com/lerndevops/educka/master/controllers/deployment-ex1.yml
+kubectl expose deployment mydeployment  --port=80 --target-port=80  --type=LoadBalancer -o yaml --dry-run=client
+kubectl expose deployment mydeployment  --port=80 --target-port=80  --type=LoadBalancer
+kubectl get svc
+kubectl delete svc mydeployment
+kubectl expose deployment mydeployment  --port=80 --target-port=3000  --type=LoadBalancer
+kubectl get pods --show-labels
+kubectl get svc
+kubectl describe svc mydeployment
+
