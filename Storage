@@ -1,0 +1,59 @@
+
+volume 
+
+
+empty dir 
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myvolumes-pod
+spec:
+  containers:
+  - image: centos
+    imagePullPolicy: IfNotPresent
+    name: myvolumes-container-1
+    command: ['sh', '-c', 'echo The Bench Container 1 is Running ; sleep 3600']
+    volumeMounts:
+    - mountPath: /demo1
+      name: demo-volume
+
+  - image: ubuntu  
+    imagePullPolicy: IfNotPresent
+    name: myvolumes-container-2
+    command: ['/bin/bash', '-c', 'echo The Bench Container 2 is Running ; sleep 3600']
+    volumeMounts:
+    - mountPath: /demo2
+      name: demo-volume
+
+  - image: alpine
+    imagePullPolicy: IfNotPresent
+    name: myvolumes-container-3
+    command: ['sh', '-c', 'echo The Bench Container 3 is Running ; sleep 3600']    
+    volumeMounts:
+    - mountPath: /demo3
+      name: demo-volume
+
+  volumes:
+  - name: demo-volume
+    emptyDir: {}
+
+
+
+
+  kubectl create -f https://raw.githubusercontent.com/lerndevops/educka/master/storage/vol-emptyDir-ex2.yml
+  kubectl get pod
+  kubectl describe pod myvolumes-pod
+  kubectl get events
+  kubectl exec -it myvolumes-pod -c myvolumes-container-1 -- bash  touch /demo1/container-1
+  kubectl exec -it myvolumes-pod -c myvolumes-container-2 -- bash  touch /demo2/container-2
+  kubectl exec -it myvolumes-pod -c myvolumes-container-3 -- sh    touch /demo3/container-3
+
+  we can see empty dir volume is used across 3 pods with different image 
+
+
+
+
+
+
+
