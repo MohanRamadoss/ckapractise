@@ -205,3 +205,26 @@ spec:
         name: nginx
         resources: {}
 status: {}
+
+
+
+
+nodeName 
+nodeName is the simplest form of node selection constraint, but due to its limitations it is typically not used. nodeName is a field of PodSpec. If it is non-empty, the scheduler ignores the pod and the kubelet running on the named node tries to run the pod. Thus, if nodeName is provided in the PodSpec, it takes precedence over the above methods for node selection.
+
+Some of the limitations of using nodeName to select nodes are:
+
+If the named node does not exist, the pod will not be run, and in some cases may be automatically deleted.
+If the named node does not have the resources to accommodate the pod, the pod will fail and its reason will indicate why, for example OutOfmemory or OutOfcpu.
+Node names in cloud environments are not always predictable or stable.
+Here is an example of a pod config file using the nodeName field:
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+  nodeName: kube-01
