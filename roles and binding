@@ -62,3 +62,91 @@ kubectl config use-context cka
 kubectl auth can-i create pod
 kubectl auth can-i get pod --subresource=log
 `
+
+
+
+
+
+
+
+
+ Managing Security (User, Role, RoleBinding)
+Create a user account named bob that can authenticate to the Kubernetes cluster. Ensure that you can login a user bob, and create pods as this user
+Answer
+# Create user bob on Linux layer
+sudo useradd -G wheel bob
+sudo passwd bob
+
+# Switch to user bob
+su - bob
+
+# Prepare for the Kubernetes config
+cd ~bob
+mkdir .kube
+sudo cp -ip /etc/kubernetes/admin.conf ~bob/.kube/config
+
+# Make sure you can access the Kubernetes API
+kubectl get pod
+
+# Prepare for the Kubernetes bob user
+openssl genrsa -out bob.key 2048
+openssl req -new -key bob.key -out bob.csr -subj "/CN=bob/O=staff"
+sudo openssl x509 -req -in bob.csr -CA /etc/kubernetes/pki/ca.crt -CAkey /etc/kubernetes/pki/ca.key -CAcreateserial -out bob.crt -days 365
+ls -lth 
+
+# Add new credential to kubectl config 
+kubectl config view
+kubectl config set-credentials bob --client-certificate=./bob.crt --client-key=./bob.key
+kubectl config view
+
+# Create a Default Context for the new user (bob)
+kubectl config set-context bob-context --cluster=kubernetes --namespace=staff --user=bob
+
+
+
+kubectl create ns staff
+
+
+
+# Configure Role RBAC to define a staff role
+vim staff-role.yaml
+
+--
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: Role
+metadata: 
+  namespace: staff
+  name: staff-role
+rules: 
+- apiGroups: ["", "extensions", "apps"]
+  resources: ["deployments", "replicasets", "pods"]
+  verbs: ["list", "get", "watch", "create", "update", "patch", "delete"]
+--
+
+kubectl create -f staff-role.yaml
+kubectl get role staff-role -n staff
+
+# Bind a user to the new role
+vim rolebind.yaml
+
+--
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: RoleBinding
+metadata: 
+  name: staff-rolebinding-for-bob
+  namespace: staff
+subjects: 
+- kind: User
+  name: bob
+  apiGroup: ""
+roleRef:
+  kind: Role
+  name: staff-role
+  apiGroup: ""
+--
+
+kubectl create -f rolebind.yaml
+
+# Test it
+kubectl get pods --context=bob-context
+kubectl create deployment nginx-bob --image nginx --context bob-context
