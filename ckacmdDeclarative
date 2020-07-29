@@ -1,0 +1,443 @@
+n kubernetes, command can be divided into two categories depending on how command generate resources. Both categories are used depending on resource generation requirements.
+
+Declarative Approach
+Imperative Approach
+1. Declarative Approach
+Declarative approach used when a definition file needed to declare and using that file kubernetes generate in the cluster. Two steps follow to accomplish in declarative approach.
+Create a definition file
+Use command to generate the resources
+                    
+# 1. define a definition file nginx-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  minReadySeconds: 5
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.14.2
+        ports:
+        - containerPort: 80
+
+# 2. create resources using definition file nginx-deployment.yaml
+$ kubectl create -f nginx-deployment.yaml
+                    
+                
+2. Imperative Approach
+Imperative approach is the way resource can be created using command line instruction without defining any resource. Limited resource can be created using imperative command. In fact all the allowed resource does not create with all properties. But imperative command is very helpful for faster your work process. Additional properties can be added using after generation of definition file from imperative command. Command are used for imperative command.
+                    
+$ kubectl run
+$ kubectl create
+                    
+                
+Imperative command supports total 16 resource generation.
+Kubectl Run: 1
+Kubectl Create: 15
+KUBECTL RUN supports only 1 resource.
+                    $ kubectl run front-end --image=nginx --port=80
+                
+Details
+                    
+Examples:
+  # Start a hazelcast pod and set environment variables "DNS_DOMAIN=cluster" and "POD_NAMESPACE=default" in thecontainer.
+  kubectl run hazelcast --image=hazelcast/hazelcast --env="DNS_DOMAIN=cluster" --env="POD_NAMESPACE=default" --port=5701 --labels="app=hazelcast,env=prod"
+
+  # Start a nginx pod, but overload the spec with a partial set of values parsed from JSON.
+  kubectl run nginx --image=nginx --overrides='{ "apiVersion": "v1", "spec": { ... } }'
+
+  # Start the nginx pod using the default command, but use custom arguments (arg1 .. argN) for that command.
+  kubectl run nginx --image=nginx --   ... 
+
+  # Start the nginx pod using a different command and custom arguments.
+  kubectl run nginx --image=nginx --command --   ... 
+
+Options:
+  --command=false: If true and extra arguments are present, use them as the 'command' field in the container, rather than the 'args' field which is the default.
+  --env=[]: Environment variables to set in the container.
+  --expose=false: If true, service is created for the container(s) which are run
+  --hostport=-1: The host port mapping for the container port. To demonstrate a single-machine container.
+  --image='': The image for the container to run.
+  --image-pull-policy='': The image pull policy for the container. If left empty, this value will not be specified by the client and defaulted by the server
+  -l, --labels='': Comma separated labels to apply to the pod(s). Will override previous values.
+  --limits='': The resource requirement limits for this container.  For example, 'cpu=200m,memory=512Mi'.  Note that server side components may assign limits depending on the server configuration, such as limit ranges.
+  --port='': The port that this container exposes.
+  --record=false: Record current kubectl command in the resource annotation. If set to false, do not record the command. If set to true, record the command. If not set, default to updating the existing annotation value only if one already exists.
+  --requests='': The resource requirement requests for this container.  For example, 'cpu=100m,memory=256Mi'.  Note that server side components may assign requests depending on the server configuration, such as limit ranges.
+  --rm=false: If true, delete resources created in this command for attached containers.
+  --serviceaccount='': Service account to set in the pod spec.
+                    
+                
+KUBECTL CREATE supports 15 resources
+                    
+
+  clusterrole         Create a ClusterRole.
+  clusterrolebinding  Create a ClusterRoleBinding for a particular ClusterRole
+  configmap           Create a configmap from a local file, directory or literal value
+  cronjob             Create a cronjob with the specified name.
+  deployment          Create a deployment with the specified name.
+  job                 Create a job with the specified name.
+  namespace           Create a namespace with the specified name
+  poddisruptionbudget Create a pod disruption budget with the specified name.
+  priorityclass       Create a priorityclass with the specified name.
+  quota               Create a quota with the specified name.
+  role                Create a role with single rule.
+  rolebinding         Create a RoleBinding for a particular Role or ClusterRole
+  secret              Create a secret using specified subcommand
+  service             Create a service using specified subcommand.
+  serviceaccount      Create a service account with the specified name
+                    
+                
+Usage of imperative commands
+ClusterRole
+                    
+Examples:
+  # Create a ClusterRole named "pod-reader" that allows user to perform "get", "watch" and "list" on pods
+  kubectl create clusterrole pod-reader --verb=get,list,watch --resource=pods
+
+  # Create a ClusterRole named "pod-reader" with ResourceName specified
+  kubectl create clusterrole pod-reader --verb=get --resource=pods --resource-name=readablepod
+--resource-name=anotherpod
+
+  # Create a ClusterRole named "foo" with API Group specified
+  kubectl create clusterrole foo --verb=get,list,watch --resource=rs.extensions
+
+  # Create a ClusterRole named "foo" with SubResource specified
+  kubectl create clusterrole foo --verb=get,list,watch --resource=pods,pods/status
+
+  # Create a ClusterRole name "foo" with NonResourceURL specified
+  kubectl create clusterrole "foo" --verb=get --non-resource-url=/logs/*
+
+  # Create a ClusterRole name "monitoring" with AggregationRule specified
+  kubectl create clusterrole monitoring --aggregation-rule="rbac.example.com/aggregate-to-monitoring=true"
+
+Options:
+   --non-resource-url=[]: A partial url that user should have access to.
+   --resource=[]: Resource that the rule applies to
+   --resource-name=[]: Resource in the white list that the rule applies to, repeat this flag for multiple items
+   --verb=[]: Verb that applies to the resources contained in the rule
+
+Usage:
+  kubectl create clusterrole NAME --verb=verb --resource=resource.group [--resource-name=resourcename]
+[--dry-run=server|client|none] [options]
+                    
+                
+ClusterRole
+                    
+Create a ClusterRoleBinding for a particular ClusterRole.
+
+Examples:
+  # Create a ClusterRoleBinding for user1, user2, and group1 using the cluster-admin ClusterRole
+  kubectl create clusterrolebinding cluster-admin --clusterrole=cluster-admin --user=user1 --user=user2 --group=group1
+
+Options:
+  --clusterrole='': ClusterRole this ClusterRoleBinding should reference
+  --group=[]: Groups to bind to the clusterrole
+  --serviceaccount=[]: Service accounts to bind to the clusterrole, in the format :
+
+Usage:
+  kubectl create clusterrolebinding NAME --clusterrole=NAME [--user=username] [--group=groupname]
+[--serviceaccount=namespace:serviceaccountname] [--dry-run=server|client|none] [options]
+
+                    
+                
+ClusterRole
+                    
+Create a configmap based on a file, directory, or specified literal value.
+
+A single configmap may package one or more key/value pairs.
+
+When creating a configmap based on a file, the key will default to the basename of the file, and the value will default
+to the file content.  If the basename is an invalid key, you may specify an alternate key.
+
+When creating a configmap based on a directory, each file whose basename is a valid key in the directory will be
+packaged into the configmap.  Any directory entries except regular files are ignored (e.g. subdirectories, symlinks,
+devices, pipes, etc).
+
+Aliases:
+configmap, cm
+
+Examples:
+  # Create a new configmap named my-config based on folder bar
+  kubectl create configmap my-config --from-file=path/to/bar
+
+  # Create a new configmap named my-config with specified keys instead of file basenames on disk
+  kubectl create configmap my-config --from-file=key1=/path/to/bar/file1.txt --from-file=key2=/path/to/bar/file2.txt
+
+  # Create a new configmap named my-config with key1=config1 and key2=config2
+  kubectl create configmap my-config --from-literal=key1=config1 --from-literal=key2=config2
+
+  # Create a new configmap named my-config from the key=value pairs in the file
+  kubectl create configmap my-config --from-file=path/to/bar
+
+  # Create a new configmap named my-config from an env file
+  kubectl create configmap my-config --from-env-file=path/to/bar.env
+
+Options:
+   --from-env-file='': Specify the path to a file to read lines of key=val pairs to create a configmap (i.e. a Docker.env file).
+   --from-file=[]: Key file can be specified using its file path, in which case file basename will be used as configmap key, or optionally with a key and file path, in which case the given key will be used.  Specifying a directory will iterate each named file in the directory whose basename is a valid configmap key.
+   --from-literal=[]: Specify a key and literal value to insert in configmap (i.e. mykey=somevalue)
+
+Usage:
+  kubectl create configmap NAME [--from-file=[key=]source] [--from-literal=key1=value1] [--dry-run=server|client|none]
+[options]
+                    
+                
+CronJob
+                    
+Create a cronjob with the specified name.
+
+Aliases:
+cronjob, cj
+
+Examples:
+  # Create a cronjob with command
+  kubectl create cronjob my-job --image=busybox -- date
+
+  # Create a cronjob with schedule
+  kubectl create cronjob test-job --image=busybox --schedule="*/1 * * * *"
+
+Options:
+  --image='': Image name to run.
+  --schedule='': A schedule in the Cron format the job should be run with.
+
+Usage:
+  kubectl create cronjob NAME --image=image --schedule='0/5 * * * ?' -- [COMMAND] [args...] [flags] [options]
+
+                    
+                
+Deployment
+                    
+Create a deployment with the specified name.
+
+Aliases:
+deployment, deploy
+
+Examples:
+  # Create a new deployment named my-dep that runs the busybox image.
+  kubectl create deployment my-dep --image=busybox
+
+Options:
+  --image=[]: Image name to run.
+
+Usage:
+  kubectl create deployment NAME --image=image [--dry-run=server|client|none] [options]
+
+                    
+                
+Namespace
+                    
+Create a namespace with the specified name.
+
+Aliases:
+namespace, ns
+
+Examples:
+  # Create a new namespace named my-namespace
+  kubectl create namespace my-namespace
+
+Usage:
+  kubectl create namespace NAME [--dry-run=server|client|none] [options]
+
+                    
+                
+Poddisruptionbudget
+                    
+Create a pod disruption budget with the specified name, selector, and desired minimum available pods
+
+Aliases:
+poddisruptionbudget, pdb
+
+Examples:
+  # Create a pod disruption budget named my-pdb that will select all pods with the app=rails label
+  # and require at least one of them being available at any point in time.
+  kubectl create poddisruptionbudget my-pdb --selector=app=rails --min-available=1
+
+  # Create a pod disruption budget named my-pdb that will select all pods with the app=nginx label
+  # and require at least half of the pods selected to be available at any point in time.
+  kubectl create pdb my-pdb --selector=app=nginx --min-available=50%
+
+Options:
+  --max-unavailable='': The maximum number or percentage of unavailable pods this budget requires.
+  --min-available='': The minimum number or percentage of available pods this budget requires.
+  --selector='': A label selector to use for this budget. Only equality-based selector requirements are supported.
+
+Usage:
+  kubectl create poddisruptionbudget NAME --selector=SELECTOR --min-available=N [--dry-run=server|client|none] [options]
+
+                    
+                
+PriorityClass
+                    
+Create a priorityclass with the specified name, value, globalDefault and description
+
+Aliases:
+priorityclass, pc
+
+Examples:
+  # Create a priorityclass named high-priority
+  kubectl create priorityclass high-priority --value=1000 --description="high priority"
+
+  # Create a priorityclass named default-priority that considered as the global default priority
+  kubectl create priorityclass default-priority --value=1000 --global-default=true --description="default priority"
+
+  # Create a priorityclass named high-priority that can not preempt pods with lower priority
+  kubectl create priorityclass high-priority --value=1000 --description="high priority" --preemption-policy="Never"
+
+Options:
+  --description='': description is an arbitrary string that usually provides guidelines on when this priority class should be used.
+  --global-default=false: global-default specifies whether this PriorityClass should be considered as the default priority.
+  --preemption-policy='': preemption-policy is the policy for preempting pods with lower priority.
+  --value=0: the value of this priority class.
+
+Usage:
+  kubectl create priorityclass NAME --value=VALUE --global-default=BOOL [--dry-run=server|client|none] [options]
+
+                    
+                
+Quota
+                    
+Create a resourcequota with the specified name, hard limits and optional scopes
+
+Aliases:
+quota, resourcequota
+
+Examples:
+  # Create a new resourcequota named my-quota
+  kubectl create quota my-quota --hard=cpu=1,memory=1G,pods=2,services=3,replicationcontrollers=2,resourcequotas=1,secrets=5,persistentvolumeclaims=10
+
+  # Create a new resourcequota named best-effort
+  kubectl create quota best-effort --hard=pods=100 --scopes=BestEffort
+
+Options:
+  --hard='': A comma-delimited set of resource=quantity pairs that define a hard limit.
+  --scopes='': A comma-delimited set of quota scopes that must all match each object tracked by the quota.
+
+Usage:
+  kubectl create quota NAME [--hard=key1=value1,key2=value2] [--scopes=Scope1,Scope2] [--dry-run=server|client|none][options]
+                    
+                
+Role
+                    
+Create a role with single rule.
+
+Examples:
+  # Create a Role named "pod-reader" that allows user to perform "get", "watch" and "list" on pods
+  kubectl create role pod-reader --verb=get --verb=list --verb=watch --resource=pods
+
+  # Create a Role named "pod-reader" with ResourceName specified
+  kubectl create role pod-reader --verb=get --resource=pods --resource-name=readablepod --resource-name=anotherpod
+
+  # Create a Role named "foo" with API Group specified
+  kubectl create role foo --verb=get,list,watch --resource=rs.extensions
+
+  # Create a Role named "foo" with SubResource specified
+  kubectl create role foo --verb=get,list,watch --resource=pods,pods/status
+
+Options:
+  --resource=[]: Resource that the rule applies to
+  --resource-name=[]: Resource in the white list that the rule applies to, repeat this flag for multiple items
+  --verb=[]: Verb that applies to the resources contained in the rule
+
+Usage:
+  kubectl create role NAME --verb=verb --resource=resource.group/subresource [--resource-name=resourcename][--dry-run=server|client|none] [options]
+
+                    
+                
+RoleBinding
+                    
+Create a RoleBinding for a particular Role or ClusterRole.
+
+Examples:
+  # Create a RoleBinding for user1, user2, and group1 using the admin ClusterRole
+  kubectl create rolebinding admin --clusterrole=admin --user=user1 --user=user2 --group=group1
+
+Options:
+  --clusterrole='': ClusterRole this RoleBinding should reference
+  --group=[]: Groups to bind to the role
+  --role='': Role this RoleBinding should reference
+  --serviceaccount=[]: Service accounts to bind to the role, in the format :
+
+Usage:
+  kubectl create rolebinding NAME --clusterrole=NAME|--role=NAME [--user=username] [--group=groupname]
+[--serviceaccount=namespace:serviceaccountname] [--dry-run=server|client|none] [options]
+
+                    
+                
+Secret
+                    
+Create a secret using specified subcommand.
+
+Available Commands:
+  docker-registry Create a secret for use with a Docker registry
+  generic         Create a secret from a local file, directory or literal value
+  tls             Create a TLS secret
+
+Usage:
+  kubectl create secret [flags] [options]
+
+                    
+                
+Service
+                    
+Create a service using specified subcommand.
+
+Aliases:
+service, svc
+
+Available Commands:
+  clusterip    Create a ClusterIP service.
+  externalname Create an ExternalName service.
+  loadbalancer Create a LoadBalancer service.
+  nodeport     Create a NodePort service.
+
+Usage:
+  kubectl create service [flags] [options]
+
+                    
+                
+ServiceAccount
+                    
+Create a service account with the specified name.
+
+Aliases:
+serviceaccount, sa
+
+Examples:
+  # Create a new service account named my-service-account
+  kubectl create serviceaccount my-service-account
+
+Usage:
+  kubectl create serviceaccount NAME [--dry-run=server|client|none] [options]
+
+                    
+                
+Necessary Kubernetes Command for Alias
+                       
+
+$ alias k="kubectl"
+$ alias kn="kubectl get nodes -o wide"
+$ alias kp="kubectl get pods -o wide"
+$ alias kd="kubectl get deployment -o wide"
+$ alias ks="kubectl get svc -o wide"
+
+
+$ alias ke="kubectl explain --recursive"
+$ alias kdp="kubectl describe pod"
+$ alias kdd="kubectl describe deployment"
+$ alias kds="kubectl describe service"
+$ alias kdn="kubectl describe node"
+$ alias kcr="kubectl run --dry-run=client -o yaml --generator=run-pod/v1"
+$ alias kcc="kubectl create --dry-run=client -o yaml"
+
+$ alias k="kubectl" kg="kubectl get -o wide" kd="kubectl describe" kdl="kubectl delete" krd="kubectl run --dry-run=client -o yaml" kcd="kubectl create --dry-run=client -o yaml" kc="kubectl create" kx="kubectl explain --recursive" kr="kubectl run" krd="kubectl run --dry-run -o yaml"
+
+					    
