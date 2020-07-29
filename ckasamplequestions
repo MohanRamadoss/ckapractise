@@ -1,0 +1,845 @@
+Question Set 1:
+Q1. Bootstrap a Kubernetes v1.10 cluster using kubeadm
+You need to bootstrap a Kubernetes v1.10 cluster with one master and one worker node using kubeadm.
+
+Q2. Enable cluster auditing
+Enable cluster wide auditing. You can use the audit policy provided here.
+Make sure the audit logs are properly generated and saved to a log file.
+Q3. Create a deployment running nginx version 1.12.2 that will run in 2 pods
+Scale this to 4 pods.
+Scale it back to 2 pods.
+Upgrade nginx version to 1.13.8
+Check the status of the upgrade
+How do you do this in a way that you can see history of what happened?
+Undo the upgrade
+
+-- create a deployment with image nginx with version 1.12.2 with pods
+$ kc deploy nginx --image=nginx:1.12.2 --dry-run=client -o yaml > deploy-nginx.yaml
+
+-- modify replicas to 2 in deploy-nginx.yaml file and run file deploy-nginx.yaml
+$ kc -f deploy-nginx.yaml
+
+-- scale nginx deploy to 4
+$ k scale deploy nginx --replicas=4 --record=true
+
+-- scale nginx deploy back to 2
+$ k scale deploy nginx --replicas=2 --record=true
+
+-- upgrade nginx version to 1.13.8
+$  k set image deploy nginx nginx=nginx:1.13.8 --record=true
+
+-- How do you do this in a way that you can see history of what happened?
+$  k rollout history deploy nginx
+
+-- Undo the upgrade
+$  k rollout undo deploy nginx
+                    
+Q4. Create a service that uses a scratch disk
+Change the service to mount a disk from the host.
+Change the service to mount a persistent volume.
+Q5. Create a pod with a Liveness and Readiness probes
+You need to create a pod called upNready that has liveness and readiness probes configured for it. Feel free to choose any application of your choice for the pod.
+
+                        
+-- create a pod with name upnready
+$ krd upnready --image=nginx > livred-nginx.yaml
+
+-- add livenessProbe and readinessProbe properties in livred-nginx.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: upnready
+  name: upnready
+spec:
+  containers:
+  - image: nginx
+    name: upnready
+    resources: {}
+    livenessProbe:
+      exec:
+        command:
+        - cat
+        - /tmp/healthy
+    readinessProbe:
+       httpGet:
+         path: /healthz
+         port: 8080
+
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+status: {}
+                        
+Q6. Create a daemon set
+Create a daemon set and change the update strategy to do a rolling update with a delay of 30 seconds between each update.
+
+
+-- update strategy with rolling update and terminationGracePeriodSeconds is 30
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: fluentd-elasticsearch
+  namespace: kube-system
+  labels:
+    k8s-app: fluentd-logging
+spec:
+  selector:
+    matchLabels:
+      name: fluentd-elasticsearch
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        name: fluentd-elasticsearch
+    spec:
+      tolerations:
+      - key: node-role.kubernetes.io/master
+        effect: NoSchedule
+      containers:
+      - name: fluentd-elasticsearch
+        image: quay.io/fluentd_elasticsearch/fluentd:v2.5.2
+        volumeMounts:
+        - name: varlog
+          mountPath: /var/log
+        - name: varlibdockercontainers
+          mountPath: /var/lib/docker/containers
+          readOnly: true
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: varlog
+        hostPath:
+          path: /var/log
+      - name: varlibdockercontainers
+        hostPath:
+          path: /var/lib/docker/containers
+                    
+Q7. Create a busybox pod
+Create a busybox pod without using a manifest and then edit the manifest as per your liking.
+
+
+-- create a pod with image busybox with command sleep after 600 seconds
+$ kubectl run busy-pod --image=busybox --command sleep 600
+                    
+Q8. Create a pod that uses secrets
+Pull secrets from environment variables.
+Pull secrets from a volume.
+Dump the secrets out via kubectl to show it worked.
+                        
+-- create a secret with name colors with a secret key APP_COLOR=RED and DB_NAME=postgres
+$ kubectl create secret generic colors --from-literal=APP_COLOR=RED --from-literal=DB_NAME=postgres
+
+-- pull secret in pod using environment variable. create a pod using imperative command and add envti
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: busy-env
+  name: busy-env
+spec:
+  containers:
+  - env:
+    - name: APP_COLOR
+      valueFrom:
+        secretKeyRef:
+           name: colors
+           key: APP_COLOR
+    image: nginx
+    name: busy-env
+    resources: {}
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+status: {}
+-- pull secrets from a volume
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: busy-env
+  name: busy-env
+spec:
+  containers:
+  - image: nginx
+    name: busy-env
+    resources: {}
+    volumeMounts:
+    - name: app-secret
+      mountPath: /secret
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+  volumes:
+  - name: app-secret
+    secret:
+       secretName: colors
+status: {}
+                        
+                    
+Q9. Create a scheduled Job
+Create a job that runs every 3 minutes and prints out the current time.
+
+Not in Syllabus
+Q10. Create a parallel Job
+Create a job that runs 80 times, with 5 containers at a time, and prints "Hello parallel world".
+
+Not in Syllabus
+Q11. Create a service
+Create a service that uses an external load balancer and points to a 3 pod cluster running nginx.
+
+
+                        # Create a 3 pod deployment of nginx in a file
+                        $ kubectl create  deploy lb-nginx --image nginx --dry-run -o yaml > lb-nginx.yaml
+
+                        # Scale deployment to 3 replicas
+                        $ kubectl scale deploy lb-nginx --replicas=3
+
+                        # Create a external loadbalancer to point 3 pod deployment
+                        $ kubectl expose deploy lb-nginx --name=nginx-service --type=LoadBalancer --port=80 --dry-run=client -o yaml > nginx-service.yaml
+                    
+Q12. Create a horizontal autoscaling group
+Create a horizontal autoscaling group that should start with 2 pods and scale when CPU usage is over 50%.
+
+Not in Syllabus
+Q13. Create pods with restricted resource usage
+Create a pods that has a CPU limit of 2 and should request 0.5 CPU when started.
+Limit the memory usage for one of the pod to 100Mb.
+
+$ kubectl run nginx --image nginx --requests=cpu=.5,memory=100 --limits=cpu=2,memory=100
+
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: nginx
+  name: nginx
+spec:
+  containers:
+  - image: nginx
+    name: nginx
+    resources:
+      limits:
+        cpu: "2"
+        memory: "100"
+      requests:
+        cpu: 500m
+        memory: "100"
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+status: {}
+                    
+Q14. Create an init container
+Create a nginx pod with an init container that populates the webroot of nginx pod with the homepage of Kubernauts.io
+
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp-pod
+  labels:
+    app: myapp
+spec:
+  containers:
+  - name: myapp-container
+    image: busybox:1.28
+    command: ['sh', '-c', 'echo The app is running! && sleep 3600']
+  initContainers:
+  - name: init-myservice
+    image: busybox:1.28
+    command: ['sh', '-c', "until nslookup myservice.$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace).svc.cluster.local; do echo waiting for myservice; sleep 2; done"]
+  - name: init-mydb
+    image: busybox:1.28
+    command: ['sh', '-c', "until nslookup mydb.$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace).svc.cluster.local; do echo waiting for mydb; sleep 2; done"]
+                    
+Q15. Create a pod with specific UID
+Create a pod that runs all processes as user 1000.
+
+
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: sc-nginx
+  name: sc-nginx
+spec:
+  securityContext:
+    runAsUser: 1000
+  containers:
+  - image: nginx
+    name: sc-nginx
+    resources: {}
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+status: {}
+                    
+Q16. Create a namespace
+Run a pod in the new namespace.
+Put memory limits on the namespace.
+Limit pods to 2 persistent volumes in this namespace.
+
+# create a namespace
+$ kubectl create ns default-nd
+
+# set limits
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: cpu-limit-range
+spec:
+  limits:
+  - default:
+      cpu: 1
+    defaultRequest:
+      cpu: 0.5
+    type: Container
+
+# Limit pods to 2 persistent volumes in this namespace
+Not in Scope
+                    
+Q17. Write an ingress rule that redirects calls to /foo to one service and to /bar to another Q18. Write a service that exposes nginx on a nodeport
+Change it to use a cluster port.
+Scale the service.
+Change it to use an external IP.
+Change it to use a load balancer.
+    
+# Create a service for nginx pod on nodeport
+$ kubectl expose po nginx --name=nginx-expose --type=NodePort --port=80
+
+# Scale the service
+Not Understand
+    
+Q19. Backup the etcd database
+Backup the etcd database at /opt/baks/etcd0001/ .
+
+$ ETCDCTL_API=3 etcdctl --endpoints=https://[127.0.0.1]:2379 \
+                        --cacert=/etc/kubernetes/pki/etcd/ca.crt \
+                        --cert=/etc/kubernetes/pki/etcd/server.crt \
+                        --key=/etc/kubernetes/pki/etcd/server.key \
+                        snapshot save /tmp/snapshot-pre-boot.db
+                    
+Q20. Create a networking policy such that only pods with the label access=granted can talk to it
+Create an nginx pod and attach this policy to it.
+Create a busybox pod and attempt to talk to nginx - should be blocked.
+Attach the label to busybox and try again - should be allowed.
+Q21. Enable certificate rotation for the cluster.
+Q22. Create 2 pod definitions.
+Create 2 pod definitions with following features:
+The first pod should be called master and second pod should be called sidecar.
+The second pod should be scheduled to run anywhere the first pod is running i.e. The 2nd pod should run alongside the first pod on the same node.
+Q23. Debug pod failure
+Deploy a pod using this manifest.
+Monitor the pod's deployment status.
+Debug the cause of pod failure.
+Customize the termination message as per your liking.
+Q24. Audit the cluster
+Audit the whole cluster to determine the cluster health and activities.
+
+
+                        Node in Scope
+                    
+Question Set 2:
+Q1. Create a initContainers
+With image busybox which will run fix time before nginx pod ready.
+
+
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: nginx
+  name: nginx
+spec:
+  initContainers:
+  - command:
+    - sleep
+    - "60"
+    image: busybox
+    name: busybox
+  containers:
+  - image: nginx
+    name: nginx
+    resources: {}
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+status: {}
+                        
+Q2. List all pod which using the service nginx-service.
+
+$ for i in $(kg svc --no-headers | awk '{print $7}'); do kg po -l $i; done
+$ kg po --show-labels | grep -F -f <(kg svc --no-headers | awk '{print $7}')
+Q3. Add security context' capabilites on a container which will set date on pod.
+
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: sc-nginx
+  name: sc-nginx
+spec:
+  containers:
+  - image: nginx
+    name: sc-nginx
+    resources: {}
+    securityContext:
+      capabilities:
+        add:
+        - SYS_TIME
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+status: {}
+                        
+Q4. Create a daemon service name nginx with proper tolleration.
+
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    app: ds-nginx
+  name: ds-nginx
+spec:
+  selector:
+    matchLabels:
+      app: ds-nginx
+  template:
+    metadata:
+      labels:
+        app: ds-nginx
+    spec:
+      containers:
+      - image: nginx
+        name: nginx
+      tolerations:
+      - key: 'node-role.kubernetes.io/master'
+        operator: 'Exists'
+                        
+Q5. Create a new deployment named 'red' with the NGINX image and 3 replicas, and ensure it gets placed on the master node only. Use the right operator.
+                            
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: ds-nginx
+  name: ds-nginx
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: ds-nginx
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: ds-nginx
+    spec:
+      containers:
+      - image: nginx
+        name: nginx
+        resources: {}
+      tolerations:
+      - key: 'node-role.kubernetes.io/master'
+        operator: 'Exists'
+                            
+                        
+Q6. Create a pod with selected any of the images. Image name redis,nginx
+                            
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: redis
+  name: redis
+spec:
+  containers:
+  - image: redis
+    name: redis
+    resources: {}
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+status: {}
+                            
+                        
+Q7. Create deployment with name deploy-nginx which accept traffic with service service-nginx.
+                            
+$ kcd deploy dp-nginx --image nginx
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: dp-nginx
+  name: dp-nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dp-nginx
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: dp-nginx
+    spec:
+      containers:
+      - image: nginx
+        name: nginx
+        resources: {}
+status: {}
+
+# create service
+$ k expose deploy dp-nginx --type=ClusterIP --name=dp-service --port=80 --dry-run=client -o yaml
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    app: dp-nginx
+  name: dp-service
+spec:
+  ports:
+  - port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: dp-nginx
+  type: ClusterIP
+status:
+  loadBalancer: {}
+
+                            
+                        
+Q8. Get all the cluster users and write in a filename /var/answer/UJDHH.TXT
+                            
+$ k config view -o jsonpath='{.users[*].name}' > /var/UJDHH.TXT
+                            
+                        
+Q9. Create a secret with name env-secret with value password=user1 and use it in pod envFrom.
+                            
+# Create a secret
+$ kc secret generic env-secret --from-literal=password=user1 --dry-run=client -o yaml
+apiVersion: v1
+data:
+  password: dXNlcjE=
+kind: Secret
+metadata:
+  creationTimestamp: null
+  name: env-secret
+
+# Consume secret in envFrom  in  a pod nginx
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: secret-nginx
+  name: secret-nginx
+spec:
+  containers:
+  - image: nginx
+    name: secret-nginx
+    resources: {}
+    envFrom:
+    - secretRef:
+        name: env-secret
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+status: {}
+                            
+                        
+Q10. To update a cluster we need to take the node down. Down the K82 .
+                            
+$ kubectl drain node K82
+                            
+                        
+Q11. Take a ETCD cluster backup on location /tmp/cluster.bk. All the required values given.
+                            
+$ ETCDCTL_API=3 etcdctl --endpoints=https://[127.0.0.1]:2379 \
+                        --cacert=/etc/kubernetes/pki/etcd/ca.crt \
+                        --cert=/etc/kubernetes/pki/etcd/server.crt \
+                        --key=/etc/kubernetes/pki/etcd/server.key \
+                        snapshot save /tmp/cluster.bk
+                            
+                        
+Q12. A pod deployed cluster-pod in the system. Create a service cluster-service in which POD will be access.
+                            
+$ kcd service clusterip cluster-service --tcp=80:8080
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    app: cluster-service
+  name: cluster-service
+spec:
+  ports:
+  - name: 80-8080
+    port: 80
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    app: cluster-service
+  type: ClusterIP
+status:
+  loadBalancer: {}
+                            
+                        
+Q13. Create a egress rule to a pod egress-pod where ip does not need to mention.
+                            
+
+                            
+                        
+Q14. Write dns information to the file /var/answer/HDKDKD.txt from the pod log-pod.
+                            
+
+                            
+                        
+Q15. Schedul a pod nginx-pod with image nginx in node k82 in namespace cluster-scheduler.
+                            
+
+                            
+                        
+Q16. Set labels with proper information ???
+                            
+
+                            
+                        
+Q17. Create a deployment with image nginx and name will be dep-nginx. Upgrade the image of the deployment nginx-12.04. After proper upgrade backto the previous version of the image nginx.
+                            
+
+                            
+                        
+Q18. Add a ConfigMap password with configuring in volume. ConfigMap value is APP_COLOR=RED and volume name is color-volume.
+                            
+
+                            
+                        
+Q19. Create a volume pv-log with empty with claim name pvc-log and mount in pod redis with image redis.
+                            
+
+                            
+                        
+Question Set 3:
+Q1. Create a pod named “web” using image nginx:1.11.9-alpine, on ports 80 and 443
+
+# Command
+$ kubectl run web --image=nginx:1.11.9-alpine --port=80 --dry-run=client -o yaml > web.yaml
+
+# Output
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: web
+  name: web
+spec:
+  containers:
+  - image: nginx:1.11.9-alpine
+    name: web
+    ports:
+    - containerPort: 80
+    - containerPort: 443
+    resources: {}
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+status: {}
+                    
+Q2. Create a service to expose that pod, named as “webservice”
+
+# Command
+$ kubectl expose pod web --name=webservice --type=ClusterIP
+# Output
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    run: web
+  name: webservice
+spec:
+  ports:
+  - name: port-1
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  - name: port-2
+    port: 443
+    protocol: TCP
+    targetPort: 443
+  selector:
+    run: web
+  type: ClusterIP
+status:
+  loadBalancer: {}
+                    
+Q3. Copy the dns records for the service in file /opt/web.dnsrecord
+Q4. Create a deployment with “redis” image on port 6379 and expose a service.
+
+# Command
+$ kubectl create deploy redis-dp --image redis --dry-run=client -o yaml > redis-dp.yaml
+
+# Output
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: redis-dp
+  name: redis-dp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis-dp
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: redis-dp
+    spec:
+      containers:
+      - image: redis
+        name: redis
+        resources: {}
+status: {}
+                    
+Q5. Increase the number of replicas to 3
+$ kubectl scale deploy redis-dp --replicas=3
+Q6. Perform a rolling update to version 4.0.11-alpine.
+$ kubectl set image deploy redis-dp redis=redis:4.0.11-alpine --record=True
+Q7. Copy pod spec to file /opt/yournamespace/podversion.
+$ kubectl get deploy redis-dp -o yaml > /opt/yournamespace/podversion
+Q8. Undo the image update to redis.. and confirm pod spec image matches
+$ kubectl rollout undo deploy redis-dp
+Q9. Create a multi container pod, with redis, memcached, nginx and mysql, assign resource memory limit as 250M for each container.
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: multicont
+  name: multicont
+spec:
+  containers:
+  - image: redis
+    name: multicont
+    resources:
+      limits:
+        memory: 250Mi
+  - image: memcached
+    name: memcached
+    resources:
+      limits:
+        memory: 250Mi
+  - image: nginx
+    name: nginx
+    resources:
+      limits:
+        memory: 250Mi
+  - image: mysql
+    name: mysql
+    resources:
+      limits:
+        memory: 250Mi
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+status: {}
+Q10. List all the pods in your namespace sorted by name.
+$ kubectl get po --sort-by=.metadata.name
+Q10. List all the pods in your namespace sorted by name at directory “/export/volume” and Copy the pod spec into /opt/yourname/shellvolume
+
+                        $ kubectl get po --sort-by=.metadata.name > /export/volume
+                        $ kubectl get po -o yaml > /opt/yourname/shellvolume
+                    
+Q12. To the earlier pod “shell” attach liveliness probe to check the file /export/volume/app.log being available.
+
+                        
+                    
+Q13. Setup init container into shell pod that got created just now, to create a file /export/volume/app.log empty file before the busybox container is run.
+Q14. Create a secret “myctl-secret” with user=myctl, secret=”SOMESECRET” edit the “shell” pod to have the above secret imported as a volume at /opt/mysecretvolume, and MYSECRET environment defined to map to key secret in “myctl-secret”
+Q15. Create a persistent Volume named “myctl” specification that defines a volume for 10Gi mapping to hostpath /opt/myctl
+Q16. Take the etcd database snapshot saved into file /opt/myctl/etcd snapshotthe certificates and keys are available in /opt/certs directory.
+Q17. Get the dns records for the service and pods for the deployment “redis” copied to file /opt/myctl/dnsrecord.redis
+Q18. List all the pods that are serviced by the service “webservice”and copy the output in /opt/myctl/webservice.targets
+Question Set 4:
+Q1. Create a pod redis version 5.0-rc4-alpine named “mycache”
+Q2. Upgrade the pod to use 5.0-rc-alpine and save the pod spec as p2 along with the command used.
+Q3. Create a config map from file /var/lib/kubelet/config.yaml and create a nginx pod that sees the configmap as a volume in the same path within the container, assign port 80 and expose it as a service “webservice” as well. The pod should be named “web”
+Q4. Create a busybox container that sleeps 60000, named “mybox”.
+Q5. Attach liveness probe to the container and restart if environment USER is null or undefined. Report pod status after attaching liveness probe.
+Q6. Pass ENV variables “USER” and “SECRET” from a secret “boxsecret” defined already that has these initialized as “bob”/”somesupersecret”
+Q7. Attach resource requests and limits for cpu and memory at 10m/10m and 100m/1000M for “mybox” pod above.
+Q8. Create a pv named “yourname-volume” that maps to hostpath “/opt/volume/yourname/” as 100G capacity, and policy reclaim.
+Q9. Create a deployment “myvolume” for memcached that get a 1G volume mapped from yourname-volume at /opt/myvolume
+Q10. Scale the deployment to have 2 replicas.
+Q11. Update myvolume deployment to have 1.5.10-alpine image on all replicas.
+Q12. Setup a init container in myvolume deployment to init a file in the mapped volume /opt/myvolume/config.yaml before the real memcached kick starts.
+Q13. Monitor pod lifecycle and log messages when pod/container starts/stops.
+Q14. Create a multi-container pod with nginx, memcached, redis all sharing the volume mount at /opt/myvolume with a 1G claim from your earlier pv created.
+Q15. List all objects in your namespace that has label “ques=p5” Find all pods that are serviced by your webservice.
+Question Set 5:
+Q1. Create a node that has a SSD and label it as such.
+Q2. Create a pod that is only scheduled on SSD nodes.
+Q3. Create 2 pod definitions: the second pod should be scheduled to run anywhere the first pod is running — 2nd pod runs alongside the first pod.
+Q4. Create a deployment running nginx version 1.12.2 that will run in 2 pods
+a. Scale this to 4 pods. b. Scale it back to 2 pods. c. Upgrade this to 1.13.8 d. Check the status of the upgrade e. How do you do this in a way that you can see history of what happened? f. Undo the upgrade
+
+Q5. Create a service that uses a scratch disk.
+a. Change the service to mount a disk from the host. b. Change the service to mount a persistent volume.
+
+Q6. Create a pod that has a liveness check
+Q7. Create a service that manually requires endpoint creation — and create that too
+Q8. Create a daemon set a. Change the update strategy to do a rolling update but delaying 30 seconds between pod updates
+Q9. Create a static pod
+Q10. Create a busybox container without a manifest. Then edit the manifest.
+Q11. Create a pod that uses secrets
+a. Pull secrets from environment variables b. Pull secrets from a volume c. Dump the secrets out via kubectl to show it worked
+
+Q12. Create a job that runs every 3 minutes and prints out the current time.
+Q13. Create a job that runs 20 times, 5 containers at a time, and prints “Hello parallel world”
+Q14. Create a service that uses an external load balancer and points to a 3 pod cluster running nginx.
+Q15. Create a horizontal autoscaling group that starts with 2 pods and scales when CPU usage is over 50%.
+Q16. Create a custom resource definition
+a. Display it in the API with curl
+
+Q17. Create a networking policy such that only pods with the label access=granted can talk to it.
+a. Create an nginx pod and attach this policy to it. b. Create a busybox pod and attempt to talk to nginx — should be blocked c. Attach the label to busybox and try again — should be allowed
+
+Q18. Create a service that references an externalname.
+a. Test that this works from another pod
+
+Q19. Create a pod that runs all processes as user 1000.
+Q20. Create a namespace
+a. Run a pod in the new namespace b. Put memory limits on the namespace c. Limit pods to 2 persistent volumes in this namespace
+
+Q21. Write an ingress rule that redirects calls to /foo to one service and to /bar to another
+Q22. Write a service that exposes nginx on a nodeport
+a. Change it to use a cluster port b. Scale the service c. Change it to use an external IP d. Change it to use a load balancer
+
+Q23. Deploy nginx with 3 replicas and then expose a port
+a. Use port forwarding to talk to a specific port
+
+Q24. Make an API call using CURL and proper certs
+Q25. Upgrade a cluster with kubeadm
+Q26. Get logs for a pod
+Q27. Deploy a pod with the wrong image name (like — image=nginy) and find the error message.
+Q28. Get logs for kubectl
+Q29. Get logs for the scheduler
+Q30. Restart kubelet
+Q31. Convert a CRT to a PEM
+a. Convert it back
+
+Q32. Backup an etcd cluster
+Q33. List the members of an etcd cluster
+Q34 Find the health of etcd
