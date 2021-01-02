@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: sunny
+  name: sunny
+  namespace: sun
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: sunny
+  template:
+    metadata:
+      labels:
+        app: sunny
+    spec:
+      serviceAccountName: sa-sun-deploy
+      containers:
+      - image: nginx:1.17.3-alpine
+        name: nginx
